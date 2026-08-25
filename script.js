@@ -44,7 +44,10 @@ try {
 
 } catch (error) {
 
-    console.error("Firebase initialization failed:", error);
+    console.error(
+        "Firebase initialization failed:",
+        error
+    );
 
     firebaseReady = false;
 }
@@ -63,6 +66,8 @@ let selectedLanguage =
 let selectedRegistrationLanguage = "en";
 
 let editingProfile = false;
+
+let internetConnectionCheckInProgress = false;
 
 
 /* =========================================================
@@ -493,7 +498,7 @@ const translations = {
             "किसानों के लिए सरकारी सहायता और कृषि कार्यक्रम।",
 
         pmKisanDescription:
-            "आधिकारिक PM-KISAN किसान सहायता जानकारी।",
+            "आधिकारिक PM-KISAN किसान सहायता जानकारी.",
 
         pmksyDescription:
             "आधिकारिक सिंचाई और जल प्रबंधन जानकारी।",
@@ -928,6 +933,8 @@ function translatePage(language) {
 
 
     updateLanguageSelectors(language);
+
+    updateConnectionStatus();
 }
 
 
@@ -1109,6 +1116,8 @@ function showDashboard() {
 
     closeSideMenu();
     closeProfileMenu();
+
+    updateConnectionStatus();
 }
 
 
@@ -1284,15 +1293,6 @@ async function registerFarmer(event) {
 
     try {
 
-        /*
-         * IMPORTANT:
-         * createUserWithEmailAndPassword checks
-         * Firebase Authentication.
-         *
-         * Firestore is NOT used to determine whether
-         * an email already exists.
-         */
-
         const userCredential =
             await auth.createUserWithEmailAndPassword(
                 email,
@@ -1302,10 +1302,6 @@ async function registerFarmer(event) {
         const user =
             userCredential.user;
 
-
-        /*
-         * Store farmer profile in Firestore.
-         */
 
         const farmerData = {
 
@@ -1359,11 +1355,6 @@ async function registerFarmer(event) {
         );
 
 
-        /*
-         * Firebase automatically signs the new
-         * user in after registration.
-         */
-
         setTimeout(
             async function () {
 
@@ -1386,14 +1377,6 @@ async function registerFarmer(event) {
             "Registration error:",
             error
         );
-
-        /*
-         * This specifically catches:
-         *
-         * auth/email-already-in-use
-         *
-         * even if the Firestore profile is missing.
-         */
 
         showMessage(
             "registerMessage",
@@ -1515,11 +1498,6 @@ async function loadFarmerProfile(uid) {
 
         if (!document.exists) {
 
-            /*
-             * IMPORTANT:
-             * We do NOT create fake/default farmer data.
-             */
-
             currentFarmerData = null;
 
             console.warn(
@@ -1534,7 +1512,6 @@ async function loadFarmerProfile(uid) {
 
         currentFarmerData =
             document.data();
-
 
         updateDashboardProfile();
 
@@ -1680,13 +1657,6 @@ function updateDashboardProfile() {
 
 function updateDashboardWithNoProfile() {
 
-    /*
-     * No fake farmer values are inserted.
-     *
-     * The UI remains blank where actual Firestore
-     * information is unavailable.
-     */
-
     const fields = [
 
         "headerFarmerName",
@@ -1699,6 +1669,7 @@ function updateDashboardWithNoProfile() {
         "profilePageEmail"
 
     ];
+
 
     fields.forEach(id => {
 
@@ -1822,13 +1793,6 @@ async function logoutFarmer() {
 ========================================================= */
 
 function enterDemoDashboard() {
-
-    /*
-     * Demo mode only opens the UI.
-     *
-     * It does NOT insert fake farmer,
-     * weather or market values.
-     */
 
     currentUser = null;
     currentFarmerData = null;
@@ -2148,13 +2112,28 @@ async function saveProfile(event) {
 
 /* =========================================================
    CONNECTION STATUS
+   FIXED VERSION
 ========================================================= */
 
-function updateConnectionStatus() {
+/*
+ * navigator.onLine alone is not always reliable.
+ *
+ * Therefore SmartAgri now checks:
+ *
+ * 1. Browser network status
+ * 2. Actual Internet connectivity
+ *
+ * We intentionally DO NOT query the farmers collection
+ * just to check connectivity because Firestore security
+ * rules can reject that request even when Internet works.
+ */
 
-    const online =
-        navigator.onLine;
 
+/* =========================================================
+   UPDATE CONNECTION UI
+========================================================= */
+
+function updateConnectionUI(isOnline) {
 
     const status =
         $("connectionStatus");
@@ -2166,16 +2145,27 @@ function updateConnectionStatus() {
         $("dashboardConnectionText");
 
 
+    const languageData =
+        translations[selectedLanguage] ||
+        translations.en;
+
+
+    const connectionText =
+        isOnline
+            ? languageData.online
+            : languageData.offline;
+
+
     if (status) {
 
         status.classList.toggle(
             "online",
-            online
+            isOnline
         );
 
         status.classList.toggle(
             "offline",
-            !online
+            !isOnline
         );
     }
 
@@ -2183,20 +2173,175 @@ function updateConnectionStatus() {
     if (text) {
 
         text.textContent =
-            translations[selectedLanguage][
-                online ? "online" : "offline"
-            ];
+            connectionText;
     }
 
 
     if (dashboardText) {
 
         dashboardText.textContent =
-            translations[selectedLanguage][
-                online ? "online" : "offline"
-            ];
+            connectionText;
     }
 }
+
+
+/* =========================================================
+   REAL INTERNET CONNECTIVITY CHECK
+========================================================= */
+
+async function checkInternetConnection() {
+
+    /*
+     * First check browser network status.
+     */
+
+    if (!navigator.onLine) {
+
+        updateConnectionUI(false);
+
+        return false;
+    }
+
+
+    /*
+     * Prevent multiple simultaneous checks.
+     */
+
+    if (internetConnectionCheckInProgress) {
+        return navigator.onLine;
+    }
+
+
+    internetConnectionCheckInProgress = true;
+
+
+    try {
+
+        /*
+         * gstatic is Google's static infrastructure.
+         *
+         * A tiny request is enough to verify that
+         * the device can actually reach the Internet.
+         *
+         * no-cors is intentionally used because we only
+         * need to know whether the request succeeds.
+         */
+
+        await fetch(
+            "https://www.gstatic.com/generate_204",
+            {
+                method: "GET",
+                cache: "no-store",
+                mode: "no-cors"
+            }
+        );
+
+
+        updateConnectionUI(true);
+
+        console.log(
+            "Internet connection: ONLINE"
+        );
+
+        return true;
+
+
+    } catch (error) {
+
+        console.warn(
+            "Internet connectivity check failed:",
+            error
+        );
+
+        updateConnectionUI(false);
+
+        return false;
+
+
+    } finally {
+
+        internetConnectionCheckInProgress =
+            false;
+    }
+}
+
+
+/* =========================================================
+   MAIN CONNECTION STATUS FUNCTION
+========================================================= */
+
+function updateConnectionStatus() {
+
+    /*
+     * If browser already knows that we are offline,
+     * immediately display Offline.
+     */
+
+    if (!navigator.onLine) {
+
+        updateConnectionUI(false);
+
+        return;
+    }
+
+
+    /*
+     * Otherwise perform a real Internet check.
+     */
+
+    checkInternetConnection();
+}
+
+
+/* =========================================================
+   CONNECTION EVENTS
+========================================================= */
+
+window.addEventListener(
+    "online",
+    function () {
+
+        console.log(
+            "Device reports ONLINE."
+        );
+
+        updateConnectionStatus();
+    }
+);
+
+
+window.addEventListener(
+    "offline",
+    function () {
+
+        console.log(
+            "Device reports OFFLINE."
+        );
+
+        updateConnectionUI(false);
+    }
+);
+
+
+/* =========================================================
+   PERIODIC CONNECTION CHECK
+========================================================= */
+
+/*
+ * Check every 30 seconds.
+ *
+ * This helps if the Internet connection changes
+ * without the browser firing an online/offline event.
+ */
+
+setInterval(
+    function () {
+
+        updateConnectionStatus();
+
+    },
+    30000
+);
 
 
 /* =========================================================
@@ -2204,12 +2349,6 @@ function updateConnectionStatus() {
 ========================================================= */
 
 function refreshWeather() {
-
-    /*
-     * No fake weather data.
-     *
-     * The actual backend/API will be connected here later.
-     */
 
     const emptyState =
         $("weatherEmptyState");
@@ -2238,13 +2377,6 @@ function refreshWeather() {
 ========================================================= */
 
 function refreshMarketData() {
-
-    /*
-     * No fake market prices.
-     *
-     * Actual verified market data must come from
-     * the backend/API.
-     */
 
     const tbody =
         $("marketTableBody");
@@ -2296,8 +2428,10 @@ function refreshMarketData() {
 
 function escapeHtml(value) {
 
-    if (value === null ||
-        value === undefined) {
+    if (
+        value === null ||
+        value === undefined
+    ) {
 
         return "";
     }
@@ -2348,11 +2482,13 @@ function setupCropImage() {
             if (!file) {
 
                 if (previewContainer) {
+
                     previewContainer
                         .classList.add("hidden");
                 }
 
                 if (analyzeButton) {
+
                     analyzeButton.disabled =
                         true;
                 }
@@ -2369,18 +2505,23 @@ function setupCropImage() {
                 function (event) {
 
                     if (preview) {
+
                         preview.src =
                             event.target.result;
                     }
 
+
                     if (previewContainer) {
+
                         previewContainer
                             .classList.remove(
                                 "hidden"
                             );
                     }
 
+
                     if (analyzeButton) {
+
                         analyzeButton.disabled =
                             false;
                     }
@@ -2401,6 +2542,7 @@ function setupCropImage() {
                 const result =
                     $("cropAnalysisResult");
 
+
                 if (!result) {
                     return;
                 }
@@ -2417,6 +2559,7 @@ function setupCropImage() {
                         service before displaying analysis.
                     </p>
                 `;
+
 
                 console.log(
                     "Crop image selected. No AI analysis is performed because no verified AI backend is connected."
@@ -2454,6 +2597,7 @@ function setupAI() {
 
             event.preventDefault();
 
+
             const question =
                 input.value.trim();
 
@@ -2463,15 +2607,13 @@ function setupAI() {
             }
 
 
-            /*
-             * We do not provide fake AI answers.
-             */
-
             const userMessage =
                 document.createElement("div");
 
+
             userMessage.className =
                 "chat-message user-message";
+
 
             userMessage.innerHTML = `
 
@@ -2504,8 +2646,10 @@ function setupAI() {
             const unavailableMessage =
                 document.createElement("div");
 
+
             unavailableMessage.className =
                 "chat-message assistant-message";
+
 
             unavailableMessage.innerHTML = `
 
@@ -2627,17 +2771,34 @@ function setupVoiceRecognition() {
             speechRecognition.lang =
                 getRecognitionLanguage();
 
-            speechRecognition.start();
+
+            try {
+
+                speechRecognition.start();
+
+            } catch (error) {
+
+                console.warn(
+                    "Speech recognition could not start:",
+                    error
+                );
+
+                return;
+            }
+
 
             startButton.classList.add(
                 "hidden"
             );
 
+
             if (stopButton) {
+
                 stopButton.classList.remove(
                     "hidden"
                 );
             }
+
 
             if (voiceResponse) {
 
@@ -2668,6 +2829,7 @@ function setupVoiceRecognition() {
 
 
             if (voiceInput) {
+
                 voiceInput.value =
                     transcript;
             }
@@ -2689,11 +2851,13 @@ function setupVoiceRecognition() {
                 event.error
             );
 
+
             if (voiceResponse) {
 
                 voiceResponse.textContent =
                     "Unable to recognize voice input.";
             }
+
 
             resetVoiceButtons();
         };
@@ -2714,6 +2878,7 @@ function resetVoiceButtons() {
         $("startVoiceBtn")
             .classList.remove("hidden");
     }
+
 
     if ($("stopVoiceBtn")) {
 
@@ -2780,6 +2945,7 @@ function setupAuthListener() {
 
                 currentUser = user;
 
+
                 console.log(
                     "Firebase user signed in:",
                     user.email
@@ -2805,14 +2971,20 @@ function setupAuthListener() {
                 showDashboard();
 
 
+                /*
+                 * Check actual Internet connectivity
+                 * after Firebase authentication.
+                 */
+
+                updateConnectionStatus();
+
+
             } else {
 
                 currentUser = null;
 
-                /*
-                 * Do not automatically create
-                 * any fake user data.
-                 */
+                currentFarmerData = null;
+
 
                 if (
                     !$("dashboardPage") ||
@@ -2821,6 +2993,9 @@ function setupAuthListener() {
 
                     hideDashboard();
                 }
+
+
+                updateConnectionStatus();
             }
         }
     );
@@ -3028,6 +3203,7 @@ function setupEventListeners() {
                     const section =
                         this.dataset.section;
 
+
                     if (section) {
 
                         showSection(
@@ -3214,17 +3390,12 @@ function setupEventListeners() {
     setupGovernmentSchemes();
 
 
-    /* CONNECTION */
-
-    window.addEventListener(
-        "online",
-        updateConnectionStatus
-    );
-
-    window.addEventListener(
-        "offline",
-        updateConnectionStatus
-    );
+    /*
+     * NOTE:
+     *
+     * Online/offline listeners are NOT added here.
+     * They are already defined globally above.
+     */
 
 
     /* CLOSE PROFILE MENU WHEN CLICKING OUTSIDE */
@@ -3298,11 +3469,6 @@ async function saveLanguageToFirestore(
 
     } catch (error) {
 
-        /*
-         * Do not show fake success.
-         * Log the actual Firestore error.
-         */
-
         console.error(
             "Could not save language to Firestore:",
             error
@@ -3324,16 +3490,32 @@ document.addEventListener(
         );
 
 
+        /*
+         * Apply saved language.
+         */
+
         translatePage(
             selectedLanguage
         );
 
 
+        /*
+         * Setup all application events.
+         */
+
         setupEventListeners();
 
 
+        /*
+         * Initial connection check.
+         */
+
         updateConnectionStatus();
 
+
+        /*
+         * Firebase authentication.
+         */
 
         if (firebaseReady) {
 
@@ -3349,6 +3531,7 @@ document.addEventListener(
 
         /*
          * Start with dashboard hidden.
+         *
          * Firebase Auth listener will open it
          * if a user is actually authenticated.
          */
