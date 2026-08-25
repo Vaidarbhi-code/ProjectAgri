@@ -1,53 +1,92 @@
 /* =========================================================
    SMARTAGRI
-   COMPLETE SCRIPT.JS
-   Works with the provided SmartAgri HTML
+   MAIN JAVASCRIPT
 ========================================================= */
 
 
 /* =========================================================
-   1. FIREBASE CONFIGURATION
+   FIREBASE CONFIGURATION
+=========================================================
+
+   IMPORTANT:
+   Replace the values below with your Firebase Web App
+   configuration.
+
 ========================================================= */
 
-// IMPORTANT:
-// Replace these values with your Firebase Web App configuration.
-
 const firebaseConfig = {
+
     apiKey: "YOUR_API_KEY",
+
     authDomain: "YOUR_PROJECT.firebaseapp.com",
+
     projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
+
+    storageBucket: "YOUR_PROJECT.firebasestorage.app",
+
     messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+
     appId: "YOUR_APP_ID"
+
 };
 
 
-// Initialize Firebase only once
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-
 /* =========================================================
-   2. GLOBAL VARIABLES
+   FIREBASE INITIALIZATION
 ========================================================= */
 
-let selectedLanguage = localStorage.getItem("smartAgriLanguage") || null;
+let firebaseReady = false;
 
-let currentUser = null;
-let currentUserData = null;
+let auth = null;
 
-let recognition = null;
-let isListening = false;
+let db = null;
 
-let profileBackup = null;
+
+try {
+
+    firebase.initializeApp(firebaseConfig);
+
+    auth = firebase.auth();
+
+    db = firebase.firestore();
+
+    firebaseReady = true;
+
+    console.log("SmartAgri Firebase initialized.");
+
+} catch (error) {
+
+    console.error(
+        "Firebase initialization failed:",
+        error
+    );
+
+}
+
 
 
 /* =========================================================
-   3. TRANSLATIONS
+   GLOBAL VARIABLES
+========================================================= */
+
+let selectedLanguage =
+    localStorage.getItem("smartagriLanguage") || "en";
+
+
+let currentUser = null;
+
+let currentFarmerData = null;
+
+let selectedCrop = "onion";
+
+let recognition = null;
+
+let isListening = false;
+
+
+
+/* =========================================================
+   TRANSLATIONS
 ========================================================= */
 
 const translations = {
@@ -191,12 +230,6 @@ const translations = {
         myProfile:
             "My Profile",
 
-        offline:
-            "Offline",
-
-        online:
-            "Online",
-
         welcome:
             "Welcome",
 
@@ -205,6 +238,12 @@ const translations = {
 
         connectionStatus:
             "Connection Status",
+
+        online:
+            "Online",
+
+        offline:
+            "Offline",
 
         profileSummary:
             "Your registered information",
@@ -269,6 +308,12 @@ const translations = {
         date:
             "Date",
 
+        onion:
+            "Onion",
+
+        wheat:
+            "Wheat",
+
         marketDataUnavailable:
             "Market data unavailable",
 
@@ -283,12 +328,6 @@ const translations = {
 
         cropSubtitle:
             "Cultivation and crop management guidance.",
-
-        onion:
-            "Onion",
-
-        wheat:
-            "Wheat",
 
         onionInfo:
             "Onion cultivation information.",
@@ -430,7 +469,8 @@ const translations = {
 
     hi: {
 
-        appName: "स्मार्ट एग्री",
+        appName:
+            "स्मार्ट एग्री",
 
         appTagline:
             "स्मार्ट कृषि बाजार सूचना प्रणाली",
@@ -550,7 +590,7 @@ const translations = {
             "AI सहायक",
 
         voiceAssistance:
-            "वॉइस सहायता",
+            "आवाज सहायता",
 
         farmerProfile:
             "किसान प्रोफाइल",
@@ -567,20 +607,20 @@ const translations = {
         myProfile:
             "मेरी प्रोफाइल",
 
-        offline:
-            "ऑफलाइन",
-
-        online:
-            "ऑनलाइन",
-
         welcome:
             "स्वागत है",
 
         dashboardSubtitle:
-            "आपकी खेती की जानकारी एक ही स्थान पर।",
+            "आपकी कृषि जानकारी एक ही स्थान पर।",
 
         connectionStatus:
             "कनेक्शन स्थिति",
+
+        online:
+            "ऑनलाइन",
+
+        offline:
+            "ऑफलाइन",
 
         profileSummary:
             "आपकी पंजीकृत जानकारी",
@@ -592,13 +632,13 @@ const translations = {
             "त्वरित कार्य",
 
         quickActionsSubtitle:
-            "महत्वपूर्ण कृषि उपकरणों तक जल्दी पहुंचें।",
+            "महत्वपूर्ण कृषि उपकरण जल्दी खोलें।",
 
         liveDataTitle:
             "लाइव डेटा",
 
         liveDataDescription:
-            "केवल सत्यापित कनेक्टेड डेटा प्रदर्शित किया जाता है।",
+            "केवल सत्यापित कनेक्टेड डेटा दिखाया जाता है।",
 
         weatherSubtitle:
             "कृषि निर्णयों के लिए स्थानीय मौसम की जानकारी।",
@@ -628,10 +668,10 @@ const translations = {
             "बारिश की संभावना",
 
         marketSubtitle:
-            "सत्यापित स्रोतों से वर्तमान फसल कीमतें।",
+            "कनेक्टेड सत्यापित स्रोतों से वर्तमान फसल भाव।",
 
         marketPriceTable:
-            "बाजार मूल्य तालिका",
+            "बाजार भाव तालिका",
 
         market:
             "बाजार",
@@ -640,10 +680,16 @@ const translations = {
             "फसल",
 
         price:
-            "कीमत",
+            "भाव",
 
         date:
             "तारीख",
+
+        onion:
+            "प्याज",
+
+        wheat:
+            "गेहूं",
 
         marketDataUnavailable:
             "बाजार डेटा उपलब्ध नहीं है",
@@ -652,19 +698,13 @@ const translations = {
             "कोई सत्यापित बाजार डेटा प्राप्त नहीं हुआ।",
 
         comparisonSubtitle:
-            "बेचने से पहले जुड़े हुए बाजारों की तुलना करें।",
+            "बेचने से पहले कनेक्टेड बाजार जानकारी की तुलना करें।",
 
         dataUnavailable:
             "सत्यापित डेटा उपलब्ध नहीं है",
 
         cropSubtitle:
-            "फसल उत्पादन और प्रबंधन संबंधी जानकारी।",
-
-        onion:
-            "प्याज",
-
-        wheat:
-            "गेहूं",
+            "फसल उत्पादन और प्रबंधन मार्गदर्शन।",
 
         onionInfo:
             "प्याज की खेती की जानकारी।",
@@ -700,10 +740,10 @@ const translations = {
             "AI फसल विश्लेषण कनेक्ट नहीं है",
 
         analysisNotConnectedDescription:
-            "विश्लेषण प्रदर्शित करने से पहले सत्यापित AI सेवा कनेक्ट करें।",
+            "विश्लेषण दिखाने से पहले सत्यापित फसल स्वास्थ्य AI सेवा कनेक्ट करें।",
 
         schemesSubtitle:
-            "किसानों के लिए सरकारी सहायता और कृषि कार्यक्रम।",
+            "किसानों के लिए सरकारी सहायता और कृषि योजनाएं।",
 
         pmKisanDescription:
             "आधिकारिक PM-KISAN किसान सहायता जानकारी।",
@@ -721,7 +761,7 @@ const translations = {
             "अधिक जानकारी",
 
         aiSubtitle:
-            "खेती से संबंधित प्रश्न पूछें।",
+            "कृषि से संबंधित प्रश्न पूछें।",
 
         smartAssistant:
             "स्मार्ट किसान सहायक",
@@ -736,37 +776,37 @@ const translations = {
             "AI सेवा अभी कनेक्ट नहीं है।",
 
         askQuestion:
-            "खेती से संबंधित प्रश्न पूछें...",
+            "कृषि संबंधी प्रश्न पूछें...",
 
         aiConnectionNote:
-            "AI उत्तरों के लिए AI सेवा/बैकएंड आवश्यक है।",
+            "AI उत्तरों के लिए बैकएंड सेवा आवश्यक है।",
 
         voiceSubtitle:
             "अपनी पसंदीदा भाषा में बोलें और सुनें।",
 
         voiceAssistantTitle:
-            "स्मार्ट वॉइस सहायता",
+            "स्मार्ट आवाज सहायता",
 
         voiceDescription:
             "अपने डिवाइस के माइक्रोफोन का उपयोग करें।",
 
         startVoice:
-            "वॉइस सहायता शुरू करें",
+            "आवाज सहायता शुरू करें",
 
         stopVoice:
             "सुनना बंद करें",
 
         voiceInput:
-            "वॉइस इनपुट",
+            "आवाज इनपुट",
 
         voiceResponse:
-            "वॉइस प्रतिक्रिया",
+            "आवाज उत्तर",
 
         voiceReady:
-            "वॉइस सहायता तैयार है।",
+            "आवाज सहायता तैयार है।",
 
         voiceInputPlaceholder:
-            "वॉइस इनपुट यहां दिखाई देगा...",
+            "आवाज इनपुट यहां दिखाई देगा...",
 
         profileSubtitle:
             "अपनी किसान जानकारी देखें और संपादित करें।",
@@ -778,19 +818,19 @@ const translations = {
             "रद्द करें",
 
         settingsSubtitle:
-            "SmartAgri की प्राथमिकताएं प्रबंधित करें।",
+            "अपनी SmartAgri प्राथमिकताएं प्रबंधित करें।",
 
         changeLanguageDescription:
             "अपनी पसंदीदा एप्लिकेशन भाषा चुनें।",
 
         voiceSettingDescription:
-            "वॉइस सहायता को सक्षम या अक्षम करें।",
+            "आवाज सहायता चालू या बंद करें।",
 
         notifications:
             "सूचनाएं",
 
         notificationDescription:
-            "एप्लिकेशन सूचनाओं को सक्षम या अक्षम करें।",
+            "एप्लिकेशन सूचनाएं चालू या बंद करें।",
 
         marketIntelligence:
             "बाजार जानकारी",
@@ -806,7 +846,8 @@ const translations = {
 
     mr: {
 
-        appName: "स्मार्ट एग्री",
+        appName:
+            "स्मार्ट अॅग्री",
 
         appTagline:
             "स्मार्ट कृषी बाजार माहिती प्रणाली",
@@ -815,7 +856,7 @@ const translations = {
             "तुमची भाषा निवडा",
 
         languageDescription:
-            "पुढे जाण्यासाठी तुमची पसंतीची भाषा निवडा.",
+            "पुढे जाण्यासाठी तुमची आवडती भाषा निवडा.",
 
         continue:
             "पुढे जा",
@@ -866,7 +907,7 @@ const translations = {
             "पूर्ण नाव",
 
         mobile:
-            "मोबाईल नंबर",
+            "मोबाइल नंबर",
 
         village:
             "गाव",
@@ -875,22 +916,22 @@ const translations = {
             "राज्य",
 
         landArea:
-            "जमीन क्षेत्र",
+            "जमिनीचे क्षेत्र",
 
         preferredMarket:
-            "पसंतीची बाजारपेठ",
+            "पसंतीचा बाजार",
 
         selectMarket:
-            "बाजारपेठ निवडा",
+            "बाजार निवडा",
 
         kopargaonMarket:
             "कोपरगाव APMC",
 
         yeolaMarket:
-            "येवला बाजारपेठ",
+            "येवला बाजार",
 
         shirdiMarket:
-            "शिर्डी बाजारपेठ",
+            "शिर्डी बाजार",
 
         preferredLanguage:
             "पसंतीची भाषा",
@@ -908,7 +949,7 @@ const translations = {
             "हवामान",
 
         marketPrices:
-            "बाजारभाव",
+            "बाजार भाव",
 
         marketComparison:
             "बाजार तुलना",
@@ -917,7 +958,7 @@ const translations = {
             "पिकांची माहिती",
 
         cropHealth:
-            "पीक आरोग्य",
+            "पिकांचे आरोग्य",
 
         governmentSchemes:
             "सरकारी योजना",
@@ -926,7 +967,7 @@ const translations = {
             "AI सहाय्यक",
 
         voiceAssistance:
-            "व्हॉइस सहाय्य",
+            "आवाज सहाय्य",
 
         farmerProfile:
             "शेतकरी प्रोफाइल",
@@ -943,20 +984,20 @@ const translations = {
         myProfile:
             "माझे प्रोफाइल",
 
-        offline:
-            "ऑफलाइन",
-
-        online:
-            "ऑनलाइन",
-
         welcome:
             "स्वागत",
 
         dashboardSubtitle:
-            "तुमची शेतीविषयक माहिती एका ठिकाणी.",
+            "तुमची शेतीची माहिती एका ठिकाणी.",
 
         connectionStatus:
             "कनेक्शन स्थिती",
+
+        online:
+            "ऑनलाइन",
+
+        offline:
+            "ऑफलाइन",
 
         profileSummary:
             "तुमची नोंदणीकृत माहिती",
@@ -968,13 +1009,13 @@ const translations = {
             "जलद कृती",
 
         quickActionsSubtitle:
-            "महत्त्वाच्या शेती साधनांचा जलद वापर करा.",
+            "महत्त्वाची शेती साधने त्वरीत वापरा.",
 
         liveDataTitle:
             "लाइव्ह डेटा",
 
         liveDataDescription:
-            "फक्त सत्यापित कनेक्टेड डेटा प्रदर्शित केला जातो.",
+            "फक्त सत्यापित कनेक्टेड डेटा दाखवला जातो.",
 
         weatherSubtitle:
             "शेतीच्या निर्णयांसाठी स्थानिक हवामान माहिती.",
@@ -989,7 +1030,7 @@ const translations = {
             "हवामान डेटा उपलब्ध नाही",
 
         weatherUnavailableDescription:
-            "कोणताही सत्यापित हवामान डेटा प्राप्त झालेला नाही.",
+            "सत्यापित हवामान डेटा प्राप्त झालेला नाही.",
 
         temperature:
             "तापमान",
@@ -1004,10 +1045,10 @@ const translations = {
             "पावसाची शक्यता",
 
         marketSubtitle:
-            "सत्यापित स्रोतांमधून सध्याचे पीक बाजारभाव.",
+            "कनेक्टेड सत्यापित स्रोतांमधून सध्याचे पिकांचे भाव.",
 
         marketPriceTable:
-            "बाजारभाव तक्ता",
+            "बाजार भाव तक्ता",
 
         market:
             "बाजार",
@@ -1021,26 +1062,26 @@ const translations = {
         date:
             "तारीख",
 
-        marketDataUnavailable:
-            "बाजार डेटा उपलब्ध नाही",
-
-        marketDataUnavailableDescription:
-            "कोणताही सत्यापित बाजार डेटा प्राप्त झालेला नाही.",
-
-        comparisonSubtitle:
-            "विक्रीपूर्वी उपलब्ध बाजारपेठांची तुलना करा.",
-
-        dataUnavailable:
-            "सत्यापित डेटा उपलब्ध नाही",
-
-        cropSubtitle:
-            "पीक लागवड आणि व्यवस्थापन मार्गदर्शन.",
-
         onion:
             "कांदा",
 
         wheat:
             "गहू",
+
+        marketDataUnavailable:
+            "बाजार डेटा उपलब्ध नाही",
+
+        marketDataUnavailableDescription:
+            "सत्यापित बाजार डेटा प्राप्त झालेला नाही.",
+
+        comparisonSubtitle:
+            "विक्रीपूर्वी कनेक्टेड बाजार माहितीची तुलना करा.",
+
+        dataUnavailable:
+            "सत्यापित डेटा उपलब्ध नाही",
+
+        cropSubtitle:
+            "पिकांची लागवड आणि व्यवस्थापन मार्गदर्शन.",
 
         onionInfo:
             "कांदा लागवडीची माहिती.",
@@ -1058,7 +1099,7 @@ const translations = {
             "शेती पद्धती",
 
         cropHealthSubtitle:
-            "AI विश्लेषणासाठी पिकाचा फोटो अपलोड करा.",
+            "AI सहाय्यासाठी पिकाचा फोटो अपलोड करा.",
 
         uploadCropImage:
             "पीक / पानाचा फोटो अपलोड करा",
@@ -1076,7 +1117,7 @@ const translations = {
             "AI पीक विश्लेषण कनेक्ट केलेले नाही",
 
         analysisNotConnectedDescription:
-            "विश्लेषण दाखवण्यापूर्वी सत्यापित AI सेवा कनेक्ट करा.",
+            "विश्लेषण दाखवण्यापूर्वी सत्यापित पीक आरोग्य AI सेवा कनेक्ट करा.",
 
         schemesSubtitle:
             "शेतकरी सहाय्य आणि सरकारी कृषी योजना.",
@@ -1109,40 +1150,40 @@ const translations = {
             "सहाय्यक",
 
         aiUnavailable:
-            "AI सेवा अजून कनेक्ट केलेली नाही.",
+            "AI सेवा अद्याप कनेक्ट केलेली नाही.",
 
         askQuestion:
-            "शेतीशी संबंधित प्रश्न विचारा...",
+            "शेतीचा प्रश्न विचारा...",
 
         aiConnectionNote:
-            "AI उत्तरांसाठी AI सेवा/बॅकएंड आवश्यक आहे.",
+            "AI उत्तरांसाठी बॅकएंड सेवा आवश्यक आहे.",
 
         voiceSubtitle:
             "तुमच्या पसंतीच्या भाषेत बोला आणि ऐका.",
 
         voiceAssistantTitle:
-            "स्मार्ट व्हॉइस सहाय्य",
+            "स्मार्ट आवाज सहाय्य",
 
         voiceDescription:
             "तुमच्या डिव्हाइसचा मायक्रोफोन वापरा.",
 
         startVoice:
-            "व्हॉइस सहाय्य सुरू करा",
+            "आवाज सहाय्य सुरू करा",
 
         stopVoice:
             "ऐकणे थांबवा",
 
         voiceInput:
-            "व्हॉइस इनपुट",
+            "आवाज इनपुट",
 
         voiceResponse:
-            "व्हॉइस प्रतिसाद",
+            "आवाज प्रतिसाद",
 
         voiceReady:
-            "व्हॉइस सहाय्य तयार आहे.",
+            "आवाज सहाय्य तयार आहे.",
 
         voiceInputPlaceholder:
-            "व्हॉइस इनपुट येथे दिसेल...",
+            "आवाज इनपुट येथे दिसेल...",
 
         profileSubtitle:
             "तुमची शेतकरी माहिती पहा आणि संपादित करा.",
@@ -1154,19 +1195,19 @@ const translations = {
             "रद्द करा",
 
         settingsSubtitle:
-            "SmartAgri ची प्राधान्ये व्यवस्थापित करा.",
+            "तुमच्या SmartAgri प्राधान्यांचे व्यवस्थापन करा.",
 
         changeLanguageDescription:
             "तुमची पसंतीची अॅप भाषा निवडा.",
 
         voiceSettingDescription:
-            "व्हॉइस सहाय्य सुरू किंवा बंद करा.",
+            "आवाज सहाय्य सुरू किंवा बंद करा.",
 
         notifications:
             "सूचना",
 
         notificationDescription:
-            "अॅप सूचना सुरू किंवा बंद करा.",
+            "अॅपच्या सूचना सुरू किंवा बंद करा.",
 
         marketIntelligence:
             "बाजार माहिती",
@@ -1175,1283 +1216,2110 @@ const translations = {
             "बहुभाषिक सहाय्य",
 
         aboutDescription:
-            "SmartAgri शेतकऱ्यांना कृषी माहिती, बाजार माहिती, पीक मार्गदर्शन आणि डिजिटल शेती सहाय्य देण्यासाठी तयार करण्यात आले आहे."
+            "SmartAgri शेतकऱ्यांना कृषी माहिती, बाजार माहिती, पीक मार्गदर्शन आणि डिजिटल शेती सहाय्य देण्यासाठी तयार केले आहे."
 
     }
 
 };
 
 
+
 /* =========================================================
-   4. DOM HELPER
+   HELPER: TRANSLATION
 ========================================================= */
 
-function $(id) {
-    return document.getElementById(id);
+function t(key) {
+
+    return (
+        translations[selectedLanguage]?.[key] ||
+        translations.en[key] ||
+        key
+    );
+
 }
 
 
+
 /* =========================================================
-   5. PAGE / SCREEN MANAGEMENT
+   APPLY LANGUAGE
+========================================================= */
+
+function applyLanguage(language) {
+
+    if (!translations[language]) {
+
+        language = "en";
+
+    }
+
+
+    selectedLanguage = language;
+
+
+    localStorage.setItem(
+        "smartagriLanguage",
+        selectedLanguage
+    );
+
+
+    document.documentElement.lang =
+        selectedLanguage;
+
+
+    /* TEXT */
+
+    document
+        .querySelectorAll("[data-i18n]")
+        .forEach(element => {
+
+            const key =
+                element.getAttribute("data-i18n");
+
+            const value = t(key);
+
+            if (value) {
+
+                element.textContent = value;
+
+            }
+
+        });
+
+
+    /* PLACEHOLDERS */
+
+    document
+        .querySelectorAll("[data-i18n-placeholder]")
+        .forEach(element => {
+
+            const key =
+                element.getAttribute(
+                    "data-i18n-placeholder"
+                );
+
+            element.placeholder = t(key);
+
+        });
+
+
+    /* LANGUAGE SELECTORS */
+
+    const selectors = [
+
+        "dashboardLanguage",
+
+        "settingsLanguage",
+
+        "profileLanguage",
+
+        "registerLanguage"
+
+    ];
+
+
+    selectors.forEach(id => {
+
+        const element =
+            document.getElementById(id);
+
+        if (element) {
+
+            element.value =
+                selectedLanguage;
+
+        }
+
+    });
+
+
+    updateLanguageButtons();
+
+}
+
+
+
+/* =========================================================
+   LANGUAGE BUTTONS
+========================================================= */
+
+function updateLanguageButtons() {
+
+    document
+        .querySelectorAll(".language-option")
+        .forEach(button => {
+
+            button.classList.toggle(
+                "selected",
+                button.dataset.language === selectedLanguage
+            );
+
+        });
+
+
+    const continueButton =
+        document.getElementById(
+            "continueLanguageBtn"
+        );
+
+
+    if (continueButton) {
+
+        continueButton.disabled = false;
+
+    }
+
+}
+
+
+
+/* =========================================================
+   SCREEN MANAGEMENT
 ========================================================= */
 
 function showScreen(screenId) {
 
-    document.querySelectorAll(".screen").forEach(screen => {
-        screen.classList.remove("active-screen");
-    });
+    document
+        .querySelectorAll(".screen")
+        .forEach(screen => {
 
-    const screen = $(screenId);
+            screen.classList.remove(
+                "active-screen"
+            );
+
+        });
+
+
+    const screen =
+        document.getElementById(screenId);
+
 
     if (screen) {
-        screen.classList.add("active-screen");
+
+        screen.classList.add(
+            "active-screen"
+        );
+
     }
+
 }
 
+
+
+/* =========================================================
+   DASHBOARD SHOW
+========================================================= */
 
 function showDashboard() {
 
-    document.querySelectorAll(".screen").forEach(screen => {
-        screen.classList.remove("active-screen");
-    });
+    showScreen("dashboardPage");
 
-    $("dashboardPage").style.display = "block";
-
-    showSection("dashboardSection");
-}
-
-
-function hideDashboard() {
-
-    $("dashboardPage").style.display = "none";
-}
-
-
-/* =========================================================
-   6. SECTION NAVIGATION
-========================================================= */
-
-function showSection(sectionId) {
-
-    document.querySelectorAll(".app-section").forEach(section => {
-        section.classList.remove("active-section");
-    });
-
-    const section = $(sectionId);
-
-    if (section) {
-        section.classList.add("active-section");
-    }
+    document.body.classList.add(
+        "dashboard-active"
+    );
 
     closeSideMenu();
+
     closeProfileMenu();
 
-    window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-    });
+    updateConnectionStatus();
+
 }
+
 
 
 /* =========================================================
-   7. SIDE MENU
+   LANGUAGE PAGE
 ========================================================= */
 
-function openSideMenu() {
+function initializeLanguagePage() {
 
-    $("sideMenu").classList.add("open");
-    $("menuOverlay").classList.add("active");
-}
+    document
+        .querySelectorAll(".language-option")
+        .forEach(button => {
 
+            button.addEventListener(
+                "click",
+                () => {
 
-function closeSideMenu() {
+                    selectedLanguage =
+                        button.dataset.language;
 
-    if ($("sideMenu")) {
-        $("sideMenu").classList.remove("open");
-    }
+                    applyLanguage(
+                        selectedLanguage
+                    );
 
-    if ($("menuOverlay")) {
-        $("menuOverlay").classList.remove("active");
-    }
-}
+                }
+            );
 
-
-/* =========================================================
-   8. PROFILE MENU
-========================================================= */
-
-function toggleProfileMenu() {
-
-    $("profileMenu").classList.toggle("open");
-}
-
-
-function closeProfileMenu() {
-
-    if ($("profileMenu")) {
-        $("profileMenu").classList.remove("open");
-    }
-}
-
-
-/* =========================================================
-   9. LANGUAGE SYSTEM
-========================================================= */
-
-function translatePage(language) {
-
-    if (!translations[language]) {
-        language = "en";
-    }
-
-    selectedLanguage = language;
-
-    localStorage.setItem(
-        "smartAgriLanguage",
-        language
-    );
-
-    document.documentElement.lang = language;
-
-    document.querySelectorAll("[data-i18n]").forEach(element => {
-
-        const key = element.getAttribute("data-i18n");
-
-        if (
-            translations[language] &&
-            translations[language][key]
-        ) {
-            element.textContent =
-                translations[language][key];
-        }
-    });
-
-
-    document.querySelectorAll("[data-i18n-placeholder]").forEach(element => {
-
-        const key =
-            element.getAttribute("data-i18n-placeholder");
-
-        if (
-            translations[language] &&
-            translations[language][key]
-        ) {
-            element.placeholder =
-                translations[language][key];
-        }
-    });
-
-
-    // Update language selectors
-
-    if ($("dashboardLanguage")) {
-        $("dashboardLanguage").value = language;
-    }
-
-    if ($("settingsLanguage")) {
-        $("settingsLanguage").value = language;
-    }
-
-    if ($("registerLanguage")) {
-        $("registerLanguage").value = language;
-    }
-
-    if ($("profileLanguage")) {
-        $("profileLanguage").value = language;
-    }
-
-
-    updateDynamicTexts();
-}
-
-
-function updateDynamicTexts() {
-
-    const name =
-        currentUserData?.name ||
-        "Farmer";
-
-    if ($("headerFarmerName")) {
-        $("headerFarmerName").textContent = name;
-    }
-
-    if ($("dashboardFarmerName")) {
-        $("dashboardFarmerName").textContent = name;
-    }
-
-    if ($("profilePageName")) {
-        $("profilePageName").textContent = name;
-    }
-}
-
-
-/* =========================================================
-   10. LANGUAGE PAGE
-========================================================= */
-
-function setupLanguagePage() {
-
-    const languageButtons =
-        document.querySelectorAll(".language-option");
-
-    const continueButton =
-        $("continueLanguageBtn");
-
-
-    languageButtons.forEach(button => {
-
-        button.addEventListener("click", () => {
-
-            languageButtons.forEach(btn => {
-                btn.classList.remove("selected");
-            });
-
-            button.classList.add("selected");
-
-            selectedLanguage =
-                button.dataset.language;
-
-            continueButton.disabled = false;
-
-            translatePage(selectedLanguage);
         });
 
-    });
 
-
-    continueButton.addEventListener("click", () => {
-
-        if (!selectedLanguage) {
-            return;
-        }
-
-        localStorage.setItem(
-            "smartAgriLanguage",
-            selectedLanguage
+    const continueButton =
+        document.getElementById(
+            "continueLanguageBtn"
         );
 
-        hideDashboard();
-        showScreen("loginPage");
-    });
-}
 
+    continueButton.addEventListener(
+        "click",
+        () => {
 
-/* =========================================================
-   11. LOGIN / REGISTER NAVIGATION
-========================================================= */
-
-function setupAuthNavigation() {
-
-    $("showRegisterBtn").addEventListener("click", () => {
-
-        clearMessage("loginMessage");
-
-        showScreen("registerPage");
-    });
-
-
-    $("showLoginBtn").addEventListener("click", () => {
-
-        clearMessage("registerMessage");
-
-        showScreen("loginPage");
-    });
-
-
-    $("changeLanguageFromLogin").addEventListener("click", () => {
-
-        showScreen("languagePage");
-
-        updateLanguageSelectionUI();
-    });
-}
-
-
-function updateLanguageSelectionUI() {
-
-    document.querySelectorAll(".language-option").forEach(button => {
-
-        button.classList.toggle(
-            "selected",
-            button.dataset.language === selectedLanguage
-        );
-    });
-
-    if ($("continueLanguageBtn")) {
-
-        $("continueLanguageBtn").disabled =
-            !selectedLanguage;
-    }
-}
-
-
-/* =========================================================
-   12. LOGIN
-========================================================= */
-
-async function loginUser(event) {
-
-    event.preventDefault();
-
-    const email =
-        $("loginEmail").value.trim();
-
-    const password =
-        $("loginPassword").value;
-
-    const rememberMe =
-        $("rememberMe").checked;
-
-
-    if (!email || !password) {
-        showMessage(
-            "loginMessage",
-            "Please enter your email and password.",
-            "error"
-        );
-
-        return;
-    }
-
-
-    try {
-
-        if (rememberMe) {
-
-            await auth.setPersistence(
-                firebase.auth.Auth.Persistence.LOCAL
+            localStorage.setItem(
+                "smartagriLanguage",
+                selectedLanguage
             );
 
-        } else {
+            showScreen("loginPage");
 
-            await auth.setPersistence(
-                firebase.auth.Auth.Persistence.SESSION
-            );
         }
-
-
-        showMessage(
-            "loginMessage",
-            "Logging in...",
-            "info"
-        );
-
-
-        await auth.signInWithEmailAndPassword(
-            email,
-            password
-        );
-
-    } catch (error) {
-
-        console.error("Login error:", error);
-
-        let message =
-            "Unable to login. Please check your credentials.";
-
-        if (error.code === "auth/user-not-found") {
-            message = "No account found with this email.";
-        }
-
-        if (error.code === "auth/wrong-password") {
-            message = "Incorrect password.";
-        }
-
-        if (error.code === "auth/invalid-credential") {
-            message = "Invalid email or password.";
-        }
-
-        if (error.code === "auth/invalid-email") {
-            message = "Please enter a valid email address.";
-        }
-
-        showMessage(
-            "loginMessage",
-            message,
-            "error"
-        );
-    }
-}
-
-
-/* =========================================================
-   13. REGISTRATION
-========================================================= */
-
-async function registerUser(event) {
-
-    event.preventDefault();
-
-
-    const name =
-        $("registerName").value.trim();
-
-    const email =
-        $("registerEmail").value.trim();
-
-    const mobile =
-        $("registerMobile").value.trim();
-
-    const village =
-        $("registerVillage").value.trim();
-
-    const state =
-        $("registerState").value.trim();
-
-    const landArea =
-        $("registerLandArea").value.trim();
-
-    const market =
-        $("registerMarket").value;
-
-    const language =
-        $("registerLanguage").value;
-
-    const password =
-        $("registerPassword").value;
-
-
-    if (
-        !name ||
-        !email ||
-        !mobile ||
-        !village ||
-        !state ||
-        !landArea ||
-        !market ||
-        !password
-    ) {
-
-        showMessage(
-            "registerMessage",
-            "Please fill all required fields.",
-            "error"
-        );
-
-        return;
-    }
-
-
-    if (password.length < 6) {
-
-        showMessage(
-            "registerMessage",
-            "Password must contain at least 6 characters.",
-            "error"
-        );
-
-        return;
-    }
-
-
-    try {
-
-        showMessage(
-            "registerMessage",
-            "Creating your account...",
-            "info"
-        );
-
-
-        const userCredential =
-            await auth.createUserWithEmailAndPassword(
-                email,
-                password
-            );
-
-
-        const user =
-            userCredential.user;
-
-
-        await db
-            .collection("farmers")
-            .doc(user.uid)
-            .set({
-
-                uid: user.uid,
-
-                name: name,
-
-                email: email,
-
-                mobile: mobile,
-
-                village: village,
-
-                state: state,
-
-                landArea: landArea,
-
-                preferredMarket: market,
-
-                preferredLanguage: language,
-
-                createdAt:
-                    firebase.firestore.FieldValue.serverTimestamp(),
-
-                updatedAt:
-                    firebase.firestore.FieldValue.serverTimestamp()
-
-            });
-
-
-        localStorage.setItem(
-            "smartAgriLanguage",
-            language
-        );
-
-        selectedLanguage = language;
-
-        translatePage(language);
-
-
-        showMessage(
-            "registerMessage",
-            "Account created successfully!",
-            "success"
-        );
-
-
-        setTimeout(() => {
-
-            showDashboard();
-
-        }, 1000);
-
-
-    } catch (error) {
-
-        console.error(
-            "Registration error:",
-            error
-        );
-
-
-        let message =
-            "Unable to create account.";
-
-        if (error.code === "auth/email-already-in-use") {
-            message =
-                "An account already exists with this email.";
-        }
-
-        if (error.code === "auth/invalid-email") {
-            message =
-                "Please enter a valid email address.";
-        }
-
-        if (error.code === "auth/weak-password") {
-            message =
-                "Password is too weak.";
-        }
-
-
-        showMessage(
-            "registerMessage",
-            message,
-            "error"
-        );
-    }
-}
-
-
-/* =========================================================
-   14. FORGOT PASSWORD
-========================================================= */
-
-async function forgotPassword() {
-
-    const email =
-        $("loginEmail").value.trim();
-
-
-    if (!email) {
-
-        showMessage(
-            "loginMessage",
-            "Enter your email address first.",
-            "error"
-        );
-
-        $("loginEmail").focus();
-
-        return;
-    }
-
-
-    try {
-
-        await auth.sendPasswordResetEmail(email);
-
-        showMessage(
-            "loginMessage",
-            "Password reset email sent. Check your inbox.",
-            "success"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Password reset error:",
-            error
-        );
-
-        showMessage(
-            "loginMessage",
-            "Unable to send password reset email.",
-            "error"
-        );
-    }
-}
-
-
-/* =========================================================
-   15. DEMO DASHBOARD
-========================================================= */
-
-function enterDemoDashboard() {
-
-    currentUser = null;
-
-    currentUserData = {
-
-        name: "Demo Farmer",
-
-        email: "demo@smartagri.local",
-
-        mobile: "Not available",
-
-        village: "Kopargaon",
-
-        state: "Maharashtra",
-
-        landArea: "Not available",
-
-        preferredMarket: "Kopargaon APMC",
-
-        preferredLanguage:
-            selectedLanguage || "en"
-
-    };
-
-
-    translatePage(
-        currentUserData.preferredLanguage
     );
 
-    updateProfileUI();
 
-    showDashboard();
+    const changeLanguageButton =
+        document.getElementById(
+            "changeLanguageFromLogin"
+        );
 
-    setConnectionStatus(false);
+
+    changeLanguageButton.addEventListener(
+        "click",
+        () => {
+
+            showScreen("languagePage");
+
+        }
+    );
+
 }
 
 
+
 /* =========================================================
-   16. FIREBASE AUTH STATE
+   LOGIN
 ========================================================= */
 
-auth.onAuthStateChanged(async user => {
+function initializeLogin() {
 
-    if (user) {
-
-        currentUser = user;
-
-        await loadUserProfile();
-
-        showDashboard();
-
-        setConnectionStatus(
-            navigator.onLine
+    const form =
+        document.getElementById(
+            "loginForm"
         );
 
-    } else {
 
-        currentUser = null;
+    form.addEventListener(
+        "submit",
+        async event => {
 
-        if (
-            $("dashboardPage").style.display !== "none"
-        ) {
+            event.preventDefault();
 
-            hideDashboard();
 
-            if (
-                localStorage.getItem(
-                    "smartAgriLanguage"
-                )
-            ) {
+            const email =
+                document
+                    .getElementById(
+                        "loginEmail"
+                    )
+                    .value
+                    .trim();
 
-                showScreen("loginPage");
+
+            const password =
+                document
+                    .getElementById(
+                        "loginPassword"
+                    )
+                    .value;
+
+
+            const remember =
+                document
+                    .getElementById(
+                        "rememberMe"
+                    )
+                    .checked;
+
+
+            const message =
+                document.getElementById(
+                    "loginMessage"
+                );
+
+
+            if (!firebaseReady) {
+
+                showMessage(
+                    message,
+                    "Firebase is not configured yet.",
+                    "error"
+                );
+
+                return;
+
+            }
+
+
+            try {
+
+                if (remember) {
+
+                    await auth.setPersistence(
+                        firebase.auth.Auth.Persistence.LOCAL
+                    );
+
+                } else {
+
+                    await auth.setPersistence(
+                        firebase.auth.Auth.Persistence.SESSION
+                    );
+
+                }
+
+
+                await auth.signInWithEmailAndPassword(
+                    email,
+                    password
+                );
+
+
+                showMessage(
+                    message,
+                    "Login successful.",
+                    "success"
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Login error:",
+                    error
+                );
+
+
+                showMessage(
+                    message,
+                    getFirebaseErrorMessage(
+                        error
+                    ),
+                    "error"
+                );
+
+            }
+
+        }
+    );
+
+
+
+    /* FORGOT PASSWORD */
+
+    document
+        .getElementById(
+            "forgotPasswordBtn"
+        )
+        .addEventListener(
+            "click",
+            async () => {
+
+                const email =
+                    document
+                        .getElementById(
+                            "loginEmail"
+                        )
+                        .value
+                        .trim();
+
+
+                const message =
+                    document.getElementById(
+                        "loginMessage"
+                    );
+
+
+                if (!email) {
+
+                    showMessage(
+                        message,
+                        "Enter your email address first.",
+                        "error"
+                    );
+
+                    return;
+
+                }
+
+
+                if (!firebaseReady) {
+
+                    showMessage(
+                        message,
+                        "Firebase is not configured yet.",
+                        "error"
+                    );
+
+                    return;
+
+                }
+
+
+                try {
+
+                    await auth.sendPasswordResetEmail(
+                        email
+                    );
+
+
+                    showMessage(
+                        message,
+                        "Password reset email sent.",
+                        "success"
+                    );
+
+
+                } catch (error) {
+
+                    showMessage(
+                        message,
+                        getFirebaseErrorMessage(
+                            error
+                        ),
+                        "error"
+                    );
+
+                }
+
+            }
+        );
+
+
+
+    /* REGISTER */
+
+    document
+        .getElementById(
+            "showRegisterBtn"
+        )
+        .addEventListener(
+            "click",
+            () => {
+
+                showScreen(
+                    "registerPage"
+                );
+
+            }
+        );
+
+
+
+    /* DEMO */
+
+    document
+        .getElementById(
+            "demoBtn"
+        )
+        .addEventListener(
+            "click",
+            () => {
+
+                currentUser = {
+                    uid: "demo-user",
+                    email: "demo@smartagri.app"
+                };
+
+
+                currentFarmerData = {
+
+                    name: "Demo Farmer",
+
+                    email: "demo@smartagri.app",
+
+                    mobile: "9876543210",
+
+                    village: "Kopargaon",
+
+                    state: "Maharashtra",
+
+                    landArea: "2.5 acres",
+
+                    preferredMarket:
+                        "Kopargaon APMC",
+
+                    preferredLanguage:
+                        selectedLanguage
+
+                };
+
+
+                populateFarmerData();
+
+                showDashboard();
+
+            }
+        );
+
+}
+
+
+
+/* =========================================================
+   REGISTRATION
+========================================================= */
+
+function initializeRegistration() {
+
+    const form =
+        document.getElementById(
+            "registrationForm"
+        );
+
+
+    form.addEventListener(
+        "submit",
+        async event => {
+
+            event.preventDefault();
+
+
+            const name =
+                getValue("registerName");
+
+
+            const email =
+                getValue("registerEmail");
+
+
+            const mobile =
+                getValue("registerMobile");
+
+
+            const village =
+                getValue("registerVillage");
+
+
+            const state =
+                getValue("registerState");
+
+
+            const landArea =
+                getValue("registerLandArea");
+
+
+            const preferredMarket =
+                getValue("registerMarket");
+
+
+            const preferredLanguage =
+                getValue("registerLanguage");
+
+
+            const password =
+                document
+                    .getElementById(
+                        "registerPassword"
+                    )
+                    .value;
+
+
+            const message =
+                document.getElementById(
+                    "registerMessage"
+                );
+
+
+            if (!firebaseReady) {
+
+                showMessage(
+                    message,
+                    "Firebase is not configured yet.",
+                    "error"
+                );
+
+                return;
+
+            }
+
+
+            if (password.length < 6) {
+
+                showMessage(
+                    message,
+                    "Password must contain at least 6 characters.",
+                    "error"
+                );
+
+                return;
+
+            }
+
+
+            try {
+
+                const credential =
+                    await auth
+                        .createUserWithEmailAndPassword(
+                            email,
+                            password
+                        );
+
+
+                const user =
+                    credential.user;
+
+
+                const farmerData = {
+
+                    uid: user.uid,
+
+                    name: name,
+
+                    email: email,
+
+                    mobile: mobile,
+
+                    village: village,
+
+                    state: state,
+
+                    landArea: landArea,
+
+                    preferredMarket:
+                        preferredMarket,
+
+                    preferredLanguage:
+                        preferredLanguage,
+
+                    createdAt:
+                        firebase.firestore.FieldValue.serverTimestamp(),
+
+                    updatedAt:
+                        firebase.firestore.FieldValue.serverTimestamp()
+
+                };
+
+
+                await db
+                    .collection("farmers")
+                    .doc(user.uid)
+                    .set(farmerData);
+
+
+                currentFarmerData =
+                    farmerData;
+
+
+                currentUser = user;
+
+
+                selectedLanguage =
+                    preferredLanguage;
+
+
+                applyLanguage(
+                    selectedLanguage
+                );
+
+
+                populateFarmerData();
+
+
+                showDashboard();
+
+
+                form.reset();
+
+
+            } catch (error) {
+
+                console.error(
+                    "Registration error:",
+                    error
+                );
+
+
+                showMessage(
+                    message,
+                    getFirebaseErrorMessage(
+                        error
+                    ),
+                    "error"
+                );
+
+            }
+
+        }
+    );
+
+
+
+    document
+        .getElementById(
+            "showLoginBtn"
+        )
+        .addEventListener(
+            "click",
+            () => {
+
+                showScreen(
+                    "loginPage"
+                );
+
+            }
+        );
+
+}
+
+
+
+/* =========================================================
+   FIREBASE AUTH STATE
+========================================================= */
+
+function initializeAuthState() {
+
+    if (!firebaseReady) {
+
+        console.warn(
+            "Firebase unavailable."
+        );
+
+        return;
+
+    }
+
+
+    auth.onAuthStateChanged(
+        async user => {
+
+            if (user) {
+
+                currentUser = user;
+
+
+                await loadFarmerData(
+                    user.uid
+                );
+
+
+                showDashboard();
+
 
             } else {
 
-                showScreen("languagePage");
+                currentUser = null;
+
+                currentFarmerData = null;
+
+                showScreen(
+                    "languagePage"
+                );
+
             }
+
         }
-    }
-});
+    );
+
+}
+
 
 
 /* =========================================================
-   17. LOAD USER PROFILE
+   LOAD FARMER DATA
 ========================================================= */
 
-async function loadUserProfile() {
+async function loadFarmerData(uid) {
 
-    if (!currentUser) {
+    if (!db) {
+
         return;
+
     }
 
 
     try {
 
-        const documentSnapshot =
+        const document =
             await db
                 .collection("farmers")
-                .doc(currentUser.uid)
+                .doc(uid)
                 .get();
 
 
-        if (documentSnapshot.exists) {
+        if (document.exists) {
 
-            currentUserData =
-                documentSnapshot.data();
+            currentFarmerData =
+                document.data();
+
+
+            if (
+                currentFarmerData.preferredLanguage
+            ) {
+
+                selectedLanguage =
+                    currentFarmerData.preferredLanguage;
+
+                applyLanguage(
+                    selectedLanguage
+                );
+
+            }
+
+
+            populateFarmerData();
+
 
         } else {
 
-            currentUserData = {
+            currentFarmerData = {
 
-                uid: currentUser.uid,
-
-                name: "Farmer",
+                name:
+                    currentUser?.email ||
+                    "Farmer",
 
                 email:
-                    currentUser.email || "",
+                    currentUser?.email ||
+                    "",
 
                 mobile: "",
 
                 village: "",
 
-                state: "Maharashtra",
+                state: "",
 
                 landArea: "",
 
                 preferredMarket: "",
 
                 preferredLanguage:
-                    selectedLanguage || "en"
+                    selectedLanguage
 
             };
+
+
+            populateFarmerData();
+
         }
-
-
-        if (
-            currentUserData.preferredLanguage
-        ) {
-
-            selectedLanguage =
-                currentUserData.preferredLanguage;
-
-            localStorage.setItem(
-                "smartAgriLanguage",
-                selectedLanguage
-            );
-
-            translatePage(
-                selectedLanguage
-            );
-        }
-
-
-        updateProfileUI();
 
 
     } catch (error) {
 
         console.error(
-            "Error loading farmer profile:",
+            "Error loading farmer data:",
             error
         );
 
-        currentUserData = {
-
-            name: "Farmer",
-
-            email:
-                currentUser.email || "",
-
-            mobile: "",
-
-            village: "",
-
-            state: "",
-
-            landArea: "",
-
-            preferredMarket: "",
-
-            preferredLanguage:
-                selectedLanguage || "en"
-
-        };
-
-        updateProfileUI();
     }
+
 }
 
 
+
 /* =========================================================
-   18. UPDATE PROFILE UI
+   POPULATE FARMER DATA
 ========================================================= */
 
-function updateProfileUI() {
+function populateFarmerData() {
+
+    if (!currentFarmerData) {
+
+        return;
+
+    }
+
 
     const data =
-        currentUserData || {};
+        currentFarmerData;
 
 
-    const name =
-        data.name || "Farmer";
+    setText(
+        "headerFarmerName",
+        data.name || "Farmer"
+    );
 
 
-    // Header
-
-    if ($("headerFarmerName")) {
-        $("headerFarmerName").textContent =
-            name;
-    }
+    setText(
+        "dashboardFarmerName",
+        data.name || "Farmer"
+    );
 
 
-    // Dashboard
-
-    if ($("dashboardFarmerName")) {
-        $("dashboardFarmerName").textContent =
-            name;
-    }
+    setText(
+        "summaryName",
+        data.name || "—"
+    );
 
 
-    // Summary
-
-    if ($("summaryName")) {
-        $("summaryName").textContent =
-            data.name || "—";
-    }
-
-    if ($("summaryVillage")) {
-        $("summaryVillage").textContent =
-            data.village || "—";
-    }
-
-    if ($("summaryLand")) {
-        $("summaryLand").textContent =
-            data.landArea || "—";
-    }
-
-    if ($("summaryMarket")) {
-        $("summaryMarket").textContent =
-            data.preferredMarket || "—";
-    }
+    setText(
+        "summaryVillage",
+        data.village || "—"
+    );
 
 
-    // Profile page
-
-    if ($("profilePageName")) {
-        $("profilePageName").textContent =
-            name;
-    }
-
-    if ($("profilePageEmail")) {
-        $("profilePageEmail").textContent =
-            data.email ||
-            currentUser?.email ||
-            "—";
-    }
+    setText(
+        "summaryLand",
+        data.landArea || "—"
+    );
 
 
-    if ($("profileName")) {
-        $("profileName").value =
-            data.name || "";
-    }
+    setText(
+        "summaryMarket",
+        data.preferredMarket || "—"
+    );
 
-    if ($("profileEmail")) {
-        $("profileEmail").value =
-            data.email ||
-            currentUser?.email ||
-            "";
-    }
 
-    if ($("profileMobile")) {
-        $("profileMobile").value =
-            data.mobile || "";
-    }
+    setText(
+        "profilePageName",
+        data.name || "Farmer"
+    );
 
-    if ($("profileVillage")) {
-        $("profileVillage").value =
-            data.village || "";
-    }
 
-    if ($("profileState")) {
-        $("profileState").value =
-            data.state || "";
-    }
+    setText(
+        "profilePageEmail",
+        data.email || "—"
+    );
 
-    if ($("profileLandArea")) {
-        $("profileLandArea").value =
-            data.landArea || "";
-    }
 
-    if ($("profileMarket")) {
-        $("profileMarket").value =
-            data.preferredMarket || "";
-    }
+    setValue(
+        "profileName",
+        data.name || ""
+    );
 
-    if ($("profileLanguage")) {
-        $("profileLanguage").value =
-            data.preferredLanguage ||
-            selectedLanguage ||
-            "en";
-    }
+
+    setValue(
+        "profileEmail",
+        data.email || ""
+    );
+
+
+    setValue(
+        "profileMobile",
+        data.mobile || ""
+    );
+
+
+    setValue(
+        "profileVillage",
+        data.village || ""
+    );
+
+
+    setValue(
+        "profileState",
+        data.state || ""
+    );
+
+
+    setValue(
+        "profileLandArea",
+        data.landArea || ""
+    );
+
+
+    setValue(
+        "profileMarket",
+        data.preferredMarket || ""
+    );
+
+
+    setValue(
+        "profileLanguage",
+        data.preferredLanguage ||
+        selectedLanguage
+    );
+
+
 }
 
 
+
 /* =========================================================
-   19. PROFILE EDIT
+   PROFILE EDIT
+========================================================= */
+
+function initializeProfile() {
+
+    const editButton =
+        document.getElementById(
+            "editProfileBtn"
+        );
+
+
+    const cancelButton =
+        document.getElementById(
+            "cancelProfileEditBtn"
+        );
+
+
+    const form =
+        document.getElementById(
+            "profileForm"
+        );
+
+
+    editButton.addEventListener(
+        "click",
+        enableProfileEditing
+    );
+
+
+    cancelButton.addEventListener(
+        "click",
+        () => {
+
+            populateFarmerData();
+
+            disableProfileEditing();
+
+        }
+    );
+
+
+    form.addEventListener(
+        "submit",
+        async event => {
+
+            event.preventDefault();
+
+
+            if (!currentUser) {
+
+                return;
+
+            }
+
+
+            const updatedData = {
+
+                name:
+                    getValue("profileName"),
+
+                mobile:
+                    getValue("profileMobile"),
+
+                village:
+                    getValue("profileVillage"),
+
+                state:
+                    getValue("profileState"),
+
+                landArea:
+                    getValue("profileLandArea"),
+
+                preferredMarket:
+                    getValue("profileMarket"),
+
+                preferredLanguage:
+                    getValue("profileLanguage"),
+
+                updatedAt:
+                    firebase.firestore.FieldValue.serverTimestamp()
+
+            };
+
+
+            const message =
+                document.getElementById(
+                    "profileMessage"
+                );
+
+
+            try {
+
+                if (
+                    firebaseReady &&
+                    currentUser.uid !== "demo-user"
+                ) {
+
+                    await db
+                        .collection("farmers")
+                        .doc(currentUser.uid)
+                        .update(updatedData);
+
+                }
+
+
+                currentFarmerData = {
+
+                    ...currentFarmerData,
+
+                    ...updatedData
+
+                };
+
+
+                selectedLanguage =
+                    updatedData.preferredLanguage;
+
+
+                applyLanguage(
+                    selectedLanguage
+                );
+
+
+                populateFarmerData();
+
+                disableProfileEditing();
+
+
+                showMessage(
+                    message,
+                    "Profile updated successfully.",
+                    "success"
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Profile update error:",
+                    error
+                );
+
+
+                showMessage(
+                    message,
+                    getFirebaseErrorMessage(
+                        error
+                    ),
+                    "error"
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+
+/* =========================================================
+   ENABLE PROFILE EDITING
 ========================================================= */
 
 function enableProfileEditing() {
 
-    profileBackup = {
+    const fields = [
 
-        name: $("profileName").value,
+        "profileName",
 
-        email: $("profileEmail").value,
+        "profileMobile",
 
-        mobile: $("profileMobile").value,
+        "profileVillage",
 
-        village: $("profileVillage").value,
+        "profileState",
 
-        state: $("profileState").value,
+        "profileLandArea",
 
-        landArea: $("profileLandArea").value,
+        "profileMarket",
 
-        market: $("profileMarket").value,
+        "profileLanguage"
 
-        language: $("profileLanguage").value
-    };
-
-
-    $("profileName").disabled = false;
-
-    $("profileMobile").disabled = false;
-
-    $("profileVillage").disabled = false;
-
-    $("profileState").disabled = false;
-
-    $("profileLandArea").disabled = false;
-
-    $("profileMarket").disabled = false;
-
-    $("profileLanguage").disabled = false;
+    ];
 
 
-    $("editProfileBtn").classList.add("hidden");
+    fields.forEach(id => {
 
-    $("profileEditActions").classList.remove("hidden");
+        const element =
+            document.getElementById(id);
+
+        if (element) {
+
+            element.disabled = false;
+
+        }
+
+    });
+
+
+    document
+        .getElementById(
+            "profileEditActions"
+        )
+        .classList.remove("hidden");
+
 }
 
 
-function cancelProfileEditing() {
 
-    if (profileBackup) {
-
-        $("profileName").value =
-            profileBackup.name;
-
-        $("profileEmail").value =
-            profileBackup.email;
-
-        $("profileMobile").value =
-            profileBackup.mobile;
-
-        $("profileVillage").value =
-            profileBackup.village;
-
-        $("profileState").value =
-            profileBackup.state;
-
-        $("profileLandArea").value =
-            profileBackup.landArea;
-
-        $("profileMarket").value =
-            profileBackup.market;
-
-        $("profileLanguage").value =
-            profileBackup.language;
-    }
-
-
-    disableProfileEditing();
-}
-
+/* =========================================================
+   DISABLE PROFILE EDITING
+========================================================= */
 
 function disableProfileEditing() {
 
-    $("profileName").disabled = true;
+    const fields = [
 
-    $("profileEmail").disabled = true;
+        "profileName",
 
-    $("profileMobile").disabled = true;
+        "profileMobile",
 
-    $("profileVillage").disabled = true;
+        "profileVillage",
 
-    $("profileState").disabled = true;
+        "profileState",
 
-    $("profileLandArea").disabled = true;
+        "profileLandArea",
 
-    $("profileMarket").disabled = true;
+        "profileMarket",
 
-    $("profileLanguage").disabled = true;
+        "profileLanguage"
+
+    ];
 
 
-    $("editProfileBtn").classList.remove("hidden");
+    fields.forEach(id => {
 
-    $("profileEditActions").classList.add("hidden");
+        const element =
+            document.getElementById(id);
+
+        if (element) {
+
+            element.disabled = true;
+
+        }
+
+    });
+
+
+    document
+        .getElementById(
+            "profileEditActions"
+        )
+        .classList.add("hidden");
+
 }
 
 
+
 /* =========================================================
-   20. SAVE PROFILE
+   NAVIGATION
 ========================================================= */
 
-async function saveProfile(event) {
+function initializeNavigation() {
 
-    event.preventDefault();
+    document
+        .querySelectorAll(
+            "[data-section]"
+        )
+        .forEach(button => {
 
+            button.addEventListener(
+                "click",
+                () => {
 
-    if (!currentUser) {
+                    const sectionId =
+                        button.dataset.section;
 
-        showMessage(
-            "profileMessage",
-            "Profile editing is unavailable in demo mode.",
-            "info"
-        );
+                    showSection(
+                        sectionId
+                    );
 
-        return;
-    }
+                }
+            );
 
-
-    const updatedData = {
-
-        name:
-            $("profileName").value.trim(),
-
-        mobile:
-            $("profileMobile").value.trim(),
-
-        village:
-            $("profileVillage").value.trim(),
-
-        state:
-            $("profileState").value.trim(),
-
-        landArea:
-            $("profileLandArea").value.trim(),
-
-        preferredMarket:
-            $("profileMarket").value,
-
-        preferredLanguage:
-            $("profileLanguage").value,
-
-        updatedAt:
-            firebase.firestore.FieldValue.serverTimestamp()
-    };
+        });
 
 
-    try {
+    document
+        .querySelectorAll(
+            "[data-profile-section]"
+        )
+        .forEach(button => {
 
-        await db
-            .collection("farmers")
-            .doc(currentUser.uid)
-            .update(updatedData);
+            button.addEventListener(
+                "click",
+                () => {
 
+                    showSection(
+                        button.dataset.profileSection
+                    );
 
-        currentUserData = {
+                }
+            );
 
-            ...currentUserData,
+        });
 
-            ...updatedData
-        };
-
-
-        selectedLanguage =
-            updatedData.preferredLanguage;
-
-        localStorage.setItem(
-            "smartAgriLanguage",
-            selectedLanguage
-        );
-
-
-        translatePage(
-            selectedLanguage
-        );
-
-        updateProfileUI();
-
-        disableProfileEditing();
-
-
-        showMessage(
-            "profileMessage",
-            "Profile updated successfully.",
-            "success"
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Profile update error:",
-            error
-        );
-
-        showMessage(
-            "profileMessage",
-            "Unable to update profile.",
-            "error"
-        );
-    }
 }
 
 
+
 /* =========================================================
-   21. LOGOUT
+   SHOW APP SECTION
 ========================================================= */
 
-async function logoutUser() {
+function showSection(sectionId) {
 
-    try {
+    document
+        .querySelectorAll(".app-section")
+        .forEach(section => {
 
-        await auth.signOut();
+            section.classList.remove(
+                "active-section"
+            );
 
-        currentUser = null;
-        currentUserData = null;
+        });
 
-        hideDashboard();
 
-        showScreen("loginPage");
+    const section =
+        document.getElementById(sectionId);
 
-        clearMessage("loginMessage");
 
-    } catch (error) {
+    if (section) {
 
-        console.error(
-            "Logout error:",
-            error
+        section.classList.add(
+            "active-section"
         );
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+
     }
+
+
+    closeSideMenu();
+
+    closeProfileMenu();
+
 }
 
 
+
 /* =========================================================
-   22. CONNECTION STATUS
+   SIDE MENU
 ========================================================= */
 
-function setConnectionStatus(isOnline) {
+function initializeSideMenu() {
 
-    const status =
-        $("connectionStatus");
+    const hamburger =
+        document.getElementById(
+            "hamburgerBtn"
+        );
 
-    const connectionText =
-        $("connectionText");
+
+    const close =
+        document.getElementById(
+            "closeMenuBtn"
+        );
+
+
+    const overlay =
+        document.getElementById(
+            "menuOverlay"
+        );
+
+
+    hamburger.addEventListener(
+        "click",
+        openSideMenu
+    );
+
+
+    close.addEventListener(
+        "click",
+        closeSideMenu
+    );
+
+
+    overlay.addEventListener(
+        "click",
+        closeSideMenu
+    );
+
+}
+
+
+
+/* =========================================================
+   OPEN MENU
+========================================================= */
+
+function openSideMenu() {
+
+    document
+        .getElementById("sideMenu")
+        .classList.add("open");
+
+
+    document
+        .getElementById("menuOverlay")
+        .classList.add("active");
+
+}
+
+
+
+/* =========================================================
+   CLOSE MENU
+========================================================= */
+
+function closeSideMenu() {
+
+    const menu =
+        document.getElementById(
+            "sideMenu"
+        );
+
+
+    const overlay =
+        document.getElementById(
+            "menuOverlay"
+        );
+
+
+    if (menu) {
+
+        menu.classList.remove(
+            "open"
+        );
+
+    }
+
+
+    if (overlay) {
+
+        overlay.classList.remove(
+            "active"
+        );
+
+    }
+
+}
+
+
+
+/* =========================================================
+   PROFILE MENU
+========================================================= */
+
+function initializeProfileMenu() {
+
+    const profileButton =
+        document.getElementById(
+            "profileButton"
+        );
+
+
+    profileButton.addEventListener(
+        "click",
+        event => {
+
+            event.stopPropagation();
+
+            const menu =
+                document.getElementById(
+                    "profileMenu"
+                );
+
+            menu.classList.toggle(
+                "active"
+            );
+
+        }
+    );
+
+
+    document.addEventListener(
+        "click",
+        event => {
+
+            const menu =
+                document.getElementById(
+                    "profileMenu"
+                );
+
+
+            const button =
+                document.getElementById(
+                    "profileButton"
+                );
+
+
+            if (
+                !menu.contains(event.target) &&
+                !button.contains(event.target)
+            ) {
+
+                closeProfileMenu();
+
+            }
+
+        }
+    );
+
+}
+
+
+
+/* =========================================================
+   CLOSE PROFILE MENU
+========================================================= */
+
+function closeProfileMenu() {
+
+    const menu =
+        document.getElementById(
+            "profileMenu"
+        );
+
+
+    if (menu) {
+
+        menu.classList.remove(
+            "active"
+        );
+
+    }
+
+}
+
+
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+function initializeLogout() {
+
+    const logoutButtons = [
+
+        "sideLogoutBtn",
+
+        "profileLogoutBtn"
+
+    ];
+
+
+    logoutButtons.forEach(id => {
+
+        const button =
+            document.getElementById(id);
+
+
+        if (!button) {
+
+            return;
+
+        }
+
+
+        button.addEventListener(
+            "click",
+            async () => {
+
+                try {
+
+                    if (
+                        firebaseReady &&
+                        currentUser &&
+                        currentUser.uid !== "demo-user"
+                    ) {
+
+                        await auth.signOut();
+
+                    }
+
+
+                    currentUser = null;
+
+                    currentFarmerData = null;
+
+
+                    closeSideMenu();
+
+                    closeProfileMenu();
+
+
+                    showScreen(
+                        "languagePage"
+                    );
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Logout error:",
+                        error
+                    );
+
+                }
+
+            }
+        );
+
+    });
+
+}
+
+
+
+/* =========================================================
+   CONNECTION STATUS
+========================================================= */
+
+function updateConnectionStatus() {
+
+    const online =
+        navigator.onLine;
+
+
+    const connection =
+        document.getElementById(
+            "connectionStatus"
+        );
+
+
+    const headerText =
+        document.getElementById(
+            "connectionText"
+        );
+
 
     const dashboardText =
-        $("dashboardConnectionText");
+        document.getElementById(
+            "dashboardConnectionText"
+        );
 
 
-    if (status) {
+    if (connection) {
 
-        status.classList.toggle(
+        connection.classList.toggle(
             "online",
-            isOnline
+            online
         );
 
-        status.classList.toggle(
+        connection.classList.toggle(
             "offline",
-            !isOnline
+            !online
         );
+
     }
 
 
-    const text =
-        translations[
-            selectedLanguage || "en"
-        ]?.[isOnline ? "online" : "offline"] ||
-        (isOnline ? "Online" : "Offline");
+    if (headerText) {
 
+        headerText.textContent =
+            online
+                ? t("online")
+                : t("offline");
 
-    if (connectionText) {
-        connectionText.textContent = text;
     }
+
 
     if (dashboardText) {
-        dashboardText.textContent = text;
+
+        dashboardText.textContent =
+            online
+                ? t("online")
+                : t("offline");
+
     }
+
 }
 
 
-window.addEventListener(
-    "online",
-    () => setConnectionStatus(true)
-);
+
+/* =========================================================
+   ONLINE / OFFLINE EVENTS
+========================================================= */
+
+function initializeConnectionEvents() {
+
+    window.addEventListener(
+        "online",
+        updateConnectionStatus
+    );
 
 
-window.addEventListener(
-    "offline",
-    () => setConnectionStatus(false)
-);
+    window.addEventListener(
+        "offline",
+        updateConnectionStatus
+    );
+
+}
+
 
 
 /* =========================================================
-   23. WEATHER
+   LANGUAGE SELECTORS
 ========================================================= */
 
-function refreshWeather() {
+function initializeLanguageSelectors() {
 
-    // IMPORTANT:
-    // No fake weather values are generated.
-    // This section remains unavailable until a
-    // verified weather API/backend is connected.
+    const dashboardLanguage =
+        document.getElementById(
+            "dashboardLanguage"
+        );
 
-    $("weatherEmptyState").classList.remove("hidden");
 
-    $("weatherData").classList.add("hidden");
+    const settingsLanguage =
+        document.getElementById(
+            "settingsLanguage"
+        );
+
+
+    const registerLanguage =
+        document.getElementById(
+            "registerLanguage"
+        );
+
+
+    const profileLanguage =
+        document.getElementById(
+            "profileLanguage"
+        );
+
+
+    dashboardLanguage.addEventListener(
+        "change",
+        event => {
+
+            changeApplicationLanguage(
+                event.target.value
+            );
+
+        }
+    );
+
+
+    settingsLanguage.addEventListener(
+        "change",
+        event => {
+
+            changeApplicationLanguage(
+                event.target.value
+            );
+
+        }
+    );
+
+
+    registerLanguage.addEventListener(
+        "change",
+        event => {
+
+            selectedLanguage =
+                event.target.value;
+
+        }
+    );
+
+
+    profileLanguage.addEventListener(
+        "change",
+        event => {
+
+            selectedLanguage =
+                event.target.value;
+
+        }
+    );
+
+}
+
+
+
+/* =========================================================
+   CHANGE APPLICATION LANGUAGE
+========================================================= */
+
+async function changeApplicationLanguage(
+    language
+) {
+
+    applyLanguage(language);
+
+
+    if (
+        currentUser &&
+        firebaseReady &&
+        currentUser.uid !== "demo-user"
+    ) {
+
+        try {
+
+            await db
+                .collection("farmers")
+                .doc(currentUser.uid)
+                .update({
+
+                    preferredLanguage:
+                        language,
+
+                    updatedAt:
+                        firebase.firestore.FieldValue.serverTimestamp()
+
+                });
+
+
+            if (currentFarmerData) {
+
+                currentFarmerData.preferredLanguage =
+                    language;
+
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "Language update error:",
+                error
+            );
+
+        }
+
+    }
+
+}
+
+
+
+/* =========================================================
+   SETTINGS
+========================================================= */
+
+function initializeSettings() {
+
+    const voiceSetting =
+        document.getElementById(
+            "voiceSetting"
+        );
+
+
+    const notificationSetting =
+        document.getElementById(
+            "notificationSetting"
+        );
+
+
+    const savedVoice =
+        localStorage.getItem(
+            "smartagriVoice"
+        );
+
+
+    const savedNotifications =
+        localStorage.getItem(
+            "smartagriNotifications"
+        );
+
+
+    if (savedVoice !== null) {
+
+        voiceSetting.checked =
+            savedVoice === "true";
+
+    }
+
+
+    if (savedNotifications !== null) {
+
+        notificationSetting.checked =
+            savedNotifications === "true";
+
+    }
+
+
+    voiceSetting.addEventListener(
+        "change",
+        () => {
+
+            localStorage.setItem(
+                "smartagriVoice",
+                voiceSetting.checked
+            );
+
+        }
+    );
+
+
+    notificationSetting.addEventListener(
+        "change",
+        () => {
+
+            localStorage.setItem(
+                "smartagriNotifications",
+                notificationSetting.checked
+            );
+
+        }
+    );
+
+}
+
+
+
+/* =========================================================
+   GOVERNMENT SCHEME BUTTONS
+========================================================= */
+
+function initializeSchemeButtons() {
+
+    document
+        .querySelectorAll(
+            ".scheme-button"
+        )
+        .forEach(button => {
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    const url =
+                        button.dataset.schemeUrl;
+
+
+                    if (url) {
+
+                        window.open(
+                            url,
+                            "_blank"
+                        );
+
+                    }
+
+                }
+            );
+
+        });
+
+}
+
+
+
+/* =========================================================
+   WEATHER
+========================================================= */
+
+function initializeWeather() {
+
+    const refreshButton =
+        document.getElementById(
+            "refreshWeatherBtn"
+        );
+
+
+    refreshButton.addEventListener(
+        "click",
+        () => {
+
+            loadWeather();
+
+        }
+    );
+
+}
+
+
+function loadWeather() {
+
+    /*
+       Weather backend is not connected yet.
+
+       We deliberately keep the empty state instead
+       of displaying fake weather data.
+    */
+
+    const empty =
+        document.getElementById(
+            "weatherEmptyState"
+        );
+
+
+    const data =
+        document.getElementById(
+            "weatherData"
+        );
+
+
+    if (empty) {
+
+        empty.classList.remove(
+            "hidden"
+        );
+
+    }
+
+
+    if (data) {
+
+        data.classList.add(
+            "hidden"
+        );
+
+    }
+
 
     console.log(
-        "Weather refresh requested. No verified weather source connected."
+        "Verified weather data is not connected yet."
     );
+
 }
 
 
+
 /* =========================================================
-   24. MARKET DATA
+   MARKET PRICES
 ========================================================= */
 
-function updateMarketTable() {
+function initializeMarket() {
 
-    const crop =
-        $("cropPriceSelector").value;
+    const selector =
+        document.getElementById(
+            "cropPriceSelector"
+        );
 
-    const tbody =
-        $("marketTableBody");
+
+    selector.addEventListener(
+        "change",
+        event => {
+
+            selectedCrop =
+                event.target.value;
+
+            loadMarketPrices(
+                selectedCrop
+            );
+
+        }
+    );
 
 
-    // No fake market prices.
+    loadMarketPrices(
+        selectedCrop
+    );
 
-    tbody.innerHTML = `
+}
+
+
+
+/* =========================================================
+   LOAD MARKET PRICES
+========================================================= */
+
+function loadMarketPrices(crop) {
+
+    /*
+       No fake prices are inserted.
+
+       Real prices should come from your backend/API.
+    */
+
+    const tableBody =
+        document.getElementById(
+            "marketTableBody"
+        );
+
+
+    if (!tableBody) {
+
+        return;
+
+    }
+
+
+    tableBody.innerHTML = `
 
         <tr>
 
@@ -2462,21 +3330,17 @@ function updateMarketTable() {
                     <span>📊</span>
 
                     <strong>
-                        ${
-                            translations[
-                                selectedLanguage || "en"
-                            ]?.marketDataUnavailable ||
-                            "Market data unavailable"
-                        }
+                        ${escapeHtml(
+                            t("marketDataUnavailable")
+                        )}
                     </strong>
 
                     <p>
-                        ${
-                            translations[
-                                selectedLanguage || "en"
-                            ]?.marketDataUnavailableDescription ||
-                            "No verified market data has been received."
-                        }
+                        ${escapeHtml(
+                            t(
+                                "marketDataUnavailableDescription"
+                            )
+                        )}
                     </p>
 
                 </div>
@@ -2492,26 +3356,45 @@ function updateMarketTable() {
         "Market selected:",
         crop
     );
+
 }
 
 
+
 /* =========================================================
-   25. CROP IMAGE PREVIEW
+   CROP IMAGE
 ========================================================= */
 
-function setupCropImage() {
+function initializeCropHealth() {
 
     const input =
-        $("cropImageInput");
+        document.getElementById(
+            "cropImageInput"
+        );
+
 
     const previewContainer =
-        $("imagePreviewContainer");
+        document.getElementById(
+            "imagePreviewContainer"
+        );
+
 
     const preview =
-        $("cropImagePreview");
+        document.getElementById(
+            "cropImagePreview"
+        );
+
 
     const analyzeButton =
-        $("analyzeCropBtn");
+        document.getElementById(
+            "analyzeCropBtn"
+        );
+
+
+    const result =
+        document.getElementById(
+            "cropAnalysisResult"
+        );
 
 
     input.addEventListener(
@@ -2524,27 +3407,15 @@ function setupCropImage() {
 
             if (!file) {
 
-                previewContainer.classList.add(
-                    "hidden"
-                );
-
-                analyzeButton.disabled = true;
-
                 return;
+
             }
 
 
             if (!file.type.startsWith("image/")) {
 
-                showMessage(
-                    "cropAnalysisResult",
-                    "Please select a valid image file.",
-                    "error"
-                );
-
-                analyzeButton.disabled = true;
-
                 return;
+
             }
 
 
@@ -2552,243 +3423,241 @@ function setupCropImage() {
                 new FileReader();
 
 
-            reader.onload = function(e) {
+            reader.onload =
+                event => {
 
-                preview.src =
-                    e.target.result;
-
-                previewContainer.classList.remove(
-                    "hidden"
-                );
-
-                analyzeButton.disabled = false;
-            };
+                    preview.src =
+                        event.target.result;
 
 
-            reader.readAsDataURL(file);
+                    previewContainer.classList.remove(
+                        "hidden"
+                    );
+
+
+                    analyzeButton.disabled =
+                        false;
+
+
+                    result.innerHTML = `
+
+                        <strong>
+                            Image selected successfully.
+                        </strong>
+
+                        <p>
+                            The image is ready for
+                            AI crop-health analysis.
+                        </p>
+
+                    `;
+
+                };
+
+
+            reader.readAsDataURL(
+                file
+            );
+
         }
     );
-}
 
 
-/* =========================================================
-   26. CROP ANALYSIS
-========================================================= */
+    analyzeButton.addEventListener(
+        "click",
+        () => {
 
-function analyzeCrop() {
+            /*
+               AI backend will be connected here later.
+            */
 
-    const result =
-        $("cropAnalysisResult");
+            result.innerHTML = `
 
+                <strong>
+                    AI crop analysis is not connected yet.
+                </strong>
 
-    // No fake AI result.
+                <p>
+                    Connect your crop-health AI backend
+                    to analyze this image.
+                </p>
 
-    result.innerHTML = `
+            `;
 
-        <strong>
-            ${
-                translations[
-                    selectedLanguage || "en"
-                ]?.analysisNotConnected ||
-                "AI crop analysis is not connected"
-            }
-        </strong>
-
-        <p>
-            ${
-                translations[
-                    selectedLanguage || "en"
-                ]?.analysisNotConnectedDescription ||
-                "Connect a verified crop-health AI service before displaying analysis."
-            }
-        </p>
-
-    `;
-
-
-    console.log(
-        "Crop image selected. AI analysis backend is not connected."
+        }
     );
+
 }
 
 
-/* =========================================================
-   27. GOVERNMENT SCHEMES
-========================================================= */
-
-function setupGovernmentSchemes() {
-
-    document
-        .querySelectorAll(".scheme-button")
-        .forEach(button => {
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    const url =
-                        button.dataset.schemeUrl;
-
-                    if (url) {
-                        window.open(
-                            url,
-                            "_blank",
-                            "noopener,noreferrer"
-                        );
-                    }
-                }
-            );
-        });
-}
-
 
 /* =========================================================
-   28. AI ASSISTANT
+   AI ASSISTANT
 ========================================================= */
 
-function handleAIQuestion(event) {
+function initializeAI() {
 
-    event.preventDefault();
+    const form =
+        document.getElementById(
+            "aiForm"
+        );
 
 
     const input =
-        $("aiInput");
-
-    const question =
-        input.value.trim();
-
-
-    if (!question) {
-        return;
-    }
+        document.getElementById(
+            "aiInput"
+        );
 
 
-    addChatMessage(
-        "user",
-        question
+    const messages =
+        document.getElementById(
+            "chatMessages"
+        );
+
+
+    form.addEventListener(
+        "submit",
+        event => {
+
+            event.preventDefault();
+
+
+            const question =
+                input.value.trim();
+
+
+            if (!question) {
+
+                return;
+
+            }
+
+
+            addChatMessage(
+                question,
+                "user"
+            );
+
+
+            input.value = "";
+
+
+            setTimeout(
+                () => {
+
+                    addChatMessage(
+                        "AI service is not connected yet. Your backend AI service can be connected here.",
+                        "assistant"
+                    );
+
+                },
+                500
+            );
+
+        }
     );
 
 
-    input.value = "";
-
-
-    // Do NOT pretend that an AI backend exists.
-
-    setTimeout(() => {
+    function addChatMessage(
+        text,
+        type
+    ) {
 
         const message =
-            translations[
-                selectedLanguage || "en"
-            ]?.aiUnavailable ||
-            "AI service is not connected yet.";
+            document.createElement(
+                "div"
+            );
 
 
-        addChatMessage(
-            "assistant",
+        message.className =
+            type === "user"
+                ? "chat-message user-message"
+                : "chat-message assistant-message";
+
+
+        message.innerHTML = `
+
+            <div class="chat-avatar">
+                ${type === "user" ? "👨‍🌾" : "🤖"}
+            </div>
+
+            <div>
+
+                <strong>
+                    ${type === "user"
+                        ? "You"
+                        : escapeHtml(t("assistant"))}
+                </strong>
+
+                <p>
+                    ${escapeHtml(text)}
+                </p>
+
+            </div>
+
+        `;
+
+
+        messages.appendChild(
             message
         );
 
-    }, 300);
-}
 
+        messages.scrollTop =
+            messages.scrollHeight;
 
-function addChatMessage(
-    type,
-    text
-) {
-
-    const container =
-        $("chatMessages");
-
-
-    const message =
-        document.createElement("div");
-
-    message.className =
-        type === "user"
-            ? "chat-message user-message"
-            : "chat-message assistant-message";
-
-
-    if (type === "user") {
-
-        message.innerHTML = `
-
-            <div class="chat-avatar">
-                👨‍🌾
-            </div>
-
-            <div>
-
-                <strong>
-                    ${
-                        currentUserData?.name ||
-                        "Farmer"
-                    }
-                </strong>
-
-                <p></p>
-
-            </div>
-        `;
-
-    } else {
-
-        message.innerHTML = `
-
-            <div class="chat-avatar">
-                🤖
-            </div>
-
-            <div>
-
-                <strong>
-                    ${
-                        translations[
-                            selectedLanguage || "en"
-                        ]?.assistant ||
-                        "Assistant"
-                    }
-                </strong>
-
-                <p></p>
-
-            </div>
-        `;
     }
 
-
-    message.querySelector("p").textContent =
-        text;
-
-
-    container.appendChild(message);
-
-
-    container.scrollTop =
-        container.scrollHeight;
 }
+
 
 
 /* =========================================================
-   29. VOICE ASSISTANCE
+   VOICE ASSISTANCE
 ========================================================= */
 
-function setupVoiceRecognition() {
+function initializeVoice() {
 
     const SpeechRecognition =
         window.SpeechRecognition ||
         window.webkitSpeechRecognition;
 
 
+    const startButton =
+        document.getElementById(
+            "startVoiceBtn"
+        );
+
+
+    const stopButton =
+        document.getElementById(
+            "stopVoiceBtn"
+        );
+
+
+    const input =
+        document.getElementById(
+            "voiceInput"
+        );
+
+
+    const response =
+        document.getElementById(
+            "voiceResponse"
+        );
+
+
     if (!SpeechRecognition) {
 
-        $("startVoiceBtn").disabled = true;
+        startButton.disabled =
+            true;
 
-        $("voiceResponse").textContent =
+
+        response.textContent =
             "Voice recognition is not supported by this browser.";
 
         return;
+
     }
 
 
@@ -2796,374 +3665,226 @@ function setupVoiceRecognition() {
         new SpeechRecognition();
 
 
-    recognition.continuous = false;
-
-    recognition.interimResults = true;
-
-    recognition.lang =
-        getSpeechLanguage(
-            selectedLanguage || "en"
-        );
+    recognition.continuous =
+        false;
 
 
-    recognition.onstart = () => {
-
-        isListening = true;
-
-        $("startVoiceBtn")
-            .classList.add("hidden");
-
-        $("stopVoiceBtn")
-            .classList.remove("hidden");
-
-
-        $("voiceResponse").textContent =
-            getTranslation(
-                "voiceListening",
-                "Listening..."
-            );
-    };
-
-
-    recognition.onresult = event => {
-
-        let transcript = "";
-
-        for (
-            let i = event.resultIndex;
-            i < event.results.length;
-            i++
-        ) {
-
-            transcript +=
-                event.results[i][0].transcript;
-        }
-
-
-        $("voiceInput").value =
-            transcript;
-    };
-
-
-    recognition.onerror = event => {
-
-        console.error(
-            "Voice recognition error:",
-            event.error
-        );
-
-        $("voiceResponse").textContent =
-            "Unable to use voice recognition.";
-    };
-
-
-    recognition.onend = () => {
-
-        isListening = false;
-
-        $("startVoiceBtn")
-            .classList.remove("hidden");
-
-        $("stopVoiceBtn")
-            .classList.add("hidden");
-
-
-        if (
-            $("voiceInput").value.trim()
-        ) {
-
-            $("voiceResponse").textContent =
-                getTranslation(
-                    "voiceReady",
-                    "Voice assistance is ready."
-                );
-
-            speakText(
-                $("voiceInput").value.trim()
-            );
-        }
-    };
-}
-
-
-function getSpeechLanguage(language) {
-
-    const languages = {
-
-        en: "en-IN",
-
-        hi: "hi-IN",
-
-        mr: "mr-IN"
-    };
-
-
-    return (
-        languages[language] ||
-        "en-IN"
-    );
-}
-
-
-function startVoiceRecognition() {
-
-    if (!recognition) {
-        setupVoiceRecognition();
-    }
-
-
-    if (!recognition || isListening) {
-        return;
-    }
+    recognition.interimResults =
+        false;
 
 
     recognition.lang =
-        getSpeechLanguage(
-            selectedLanguage || "en"
-        );
+        getSpeechLanguage();
 
 
-    try {
+    recognition.onstart =
+        () => {
 
-        recognition.start();
+            isListening = true;
 
-    } catch (error) {
+            startButton.classList.add(
+                "hidden"
+            );
 
-        console.error(
-            "Unable to start voice recognition:",
-            error
-        );
-    }
-}
+            stopButton.classList.remove(
+                "hidden"
+            );
 
+            response.textContent =
+                "Listening...";
 
-function stopVoiceRecognition() {
-
-    if (
-        recognition &&
-        isListening
-    ) {
-
-        recognition.stop();
-    }
-}
+        };
 
 
-function speakText(text) {
+    recognition.onresult =
+        event => {
 
-    if (
-        !window.speechSynthesis ||
-        !text
-    ) {
-        return;
-    }
-
-
-    const utterance =
-        new SpeechSynthesisUtterance(text);
+            const transcript =
+                event
+                    .results[0][0]
+                    .transcript;
 
 
-    utterance.lang =
-        getSpeechLanguage(
-            selectedLanguage || "en"
-        );
+            input.value =
+                transcript;
 
 
-    window.speechSynthesis.cancel();
+            response.textContent =
+                "Voice input received.";
 
-    window.speechSynthesis.speak(
-        utterance
+        };
+
+
+    recognition.onerror =
+        event => {
+
+            console.error(
+                "Voice recognition error:",
+                event.error
+            );
+
+
+            response.textContent =
+                "Unable to recognize voice.";
+
+        };
+
+
+    recognition.onend =
+        () => {
+
+            isListening = false;
+
+            startButton.classList.remove(
+                "hidden"
+            );
+
+            stopButton.classList.add(
+                "hidden"
+            );
+
+        };
+
+
+    startButton.addEventListener(
+        "click",
+        () => {
+
+            recognition.lang =
+                getSpeechLanguage();
+
+
+            try {
+
+                recognition.start();
+
+            } catch (error) {
+
+                console.error(
+                    error
+                );
+
+            }
+
+        }
     );
+
+
+    stopButton.addEventListener(
+        "click",
+        () => {
+
+            if (recognition) {
+
+                recognition.stop();
+
+            }
+
+        }
+    );
+
 }
+
 
 
 /* =========================================================
-   30. SETTINGS
+   SPEECH LANGUAGE
 ========================================================= */
 
-function setupSettings() {
-
-    $("settingsLanguage")
-        .addEventListener(
-            "change",
-            event => {
-
-                const language =
-                    event.target.value;
-
-                selectedLanguage =
-                    language;
-
-                localStorage.setItem(
-                    "smartAgriLanguage",
-                    language
-                );
-
-                translatePage(language);
-
-
-                if (
-                    currentUser &&
-                    currentUserData
-                ) {
-
-                    db.collection("farmers")
-                        .doc(currentUser.uid)
-                        .update({
-
-                            preferredLanguage:
-                                language,
-
-                            updatedAt:
-                                firebase.firestore
-                                    .FieldValue
-                                    .serverTimestamp()
-                        })
-                        .catch(error => {
-
-                            console.error(
-                                "Language update error:",
-                                error
-                            );
-                        });
-                }
-
-
-                if (recognition) {
-
-                    recognition.lang =
-                        getSpeechLanguage(language);
-                }
-            }
-        );
-
-
-    $("dashboardLanguage")
-        .addEventListener(
-            "change",
-            event => {
-
-                const language =
-                    event.target.value;
-
-                selectedLanguage =
-                    language;
-
-                localStorage.setItem(
-                    "smartAgriLanguage",
-                    language
-                );
-
-                translatePage(language);
-
-
-                if (
-                    currentUser &&
-                    currentUserData
-                ) {
-
-                    db.collection("farmers")
-                        .doc(currentUser.uid)
-                        .update({
-
-                            preferredLanguage:
-                                language,
-
-                            updatedAt:
-                                firebase.firestore
-                                    .FieldValue
-                                    .serverTimestamp()
-                        })
-                        .catch(error => {
-
-                            console.error(
-                                error
-                            );
-                        });
-                }
-            }
-        );
-
-
-    $("voiceSetting")
-        .addEventListener(
-            "change",
-            event => {
-
-                localStorage.setItem(
-                    "smartAgriVoiceEnabled",
-                    event.target.checked
-                );
-            }
-        );
-
-
-    $("notificationSetting")
-        .addEventListener(
-            "change",
-            event => {
-
-                localStorage.setItem(
-                    "smartAgriNotifications",
-                    event.target.checked
-                );
-            }
-        );
-
-
-    loadSettings();
-}
-
-
-function loadSettings() {
-
-    const voiceEnabled =
-        localStorage.getItem(
-            "smartAgriVoiceEnabled"
-        );
-
+function getSpeechLanguage() {
 
     if (
-        voiceEnabled !== null
+        selectedLanguage === "hi"
     ) {
 
-        $("voiceSetting").checked =
-            voiceEnabled === "true";
+        return "hi-IN";
+
     }
 
 
-    const notifications =
-        localStorage.getItem(
-            "smartAgriNotifications"
-        );
-
-
     if (
-        notifications !== null
+        selectedLanguage === "mr"
     ) {
 
-        $("notificationSetting").checked =
-            notifications === "true";
+        return "mr-IN";
+
     }
+
+
+    return "en-IN";
+
 }
+
 
 
 /* =========================================================
-   31. UTILITY FUNCTIONS
+   UTILITY FUNCTIONS
 ========================================================= */
 
-function showMessage(
-    elementId,
-    message,
-    type = "info"
+function getValue(id) {
+
+    const element =
+        document.getElementById(id);
+
+
+    return element
+        ? element.value.trim()
+        : "";
+
+}
+
+
+
+function setValue(
+    id,
+    value
 ) {
 
     const element =
-        $(elementId);
+        document.getElementById(id);
 
+
+    if (element) {
+
+        element.value =
+            value;
+
+    }
+
+}
+
+
+
+function setText(
+    id,
+    value
+) {
+
+    const element =
+        document.getElementById(id);
+
+
+    if (element) {
+
+        element.textContent =
+            value;
+
+    }
+
+}
+
+
+
+function showMessage(
+    element,
+    message,
+    type
+) {
 
     if (!element) {
+
         return;
+
     }
 
 
@@ -3173,161 +3894,134 @@ function showMessage(
 
     element.className =
         `message ${type}`;
+
+
+    setTimeout(
+        () => {
+
+            element.textContent =
+                "";
+
+            element.className =
+                "message";
+
+        },
+        5000
+    );
+
 }
 
 
-function clearMessage(elementId) {
 
-    const element =
-        $(elementId);
+/* =========================================================
+   FIREBASE ERROR MESSAGES
+========================================================= */
 
+function getFirebaseErrorMessage(
+    error
+) {
 
-    if (!element) {
-        return;
+    if (!error) {
+
+        return "Something went wrong.";
+
     }
 
 
-    element.textContent = "";
+    switch (error.code) {
 
-    element.className =
-        "message";
+        case "auth/invalid-email":
+
+            return "Please enter a valid email address.";
+
+
+        case "auth/user-not-found":
+
+            return "No account was found with this email.";
+
+
+        case "auth/wrong-password":
+
+            return "Incorrect password.";
+
+
+        case "auth/invalid-credential":
+
+            return "Invalid email or password.";
+
+
+        case "auth/email-already-in-use":
+
+            return "An account already exists with this email.";
+
+
+        case "auth/weak-password":
+
+            return "Password is too weak.";
+
+
+        case "auth/network-request-failed":
+
+            return "Network connection failed.";
+
+
+        case "auth/too-many-requests":
+
+            return "Too many attempts. Please try again later.";
+
+
+        default:
+
+            return (
+                error.message ||
+                "Something went wrong."
+            );
+
+    }
+
 }
 
-
-function getTranslation(
-    key,
-    fallback
-) {
-
-    return (
-        translations[
-            selectedLanguage || "en"
-        ]?.[key] ||
-        fallback
-    );
-}
 
 
 /* =========================================================
-   32. NAVIGATION EVENT LISTENERS
+   ESCAPE HTML
 ========================================================= */
 
-function setupNavigation() {
+function escapeHtml(value) {
 
-    // Side navigation
+    return String(value)
 
-    document
-        .querySelectorAll(
-            ".side-navigation button[data-section]"
+        .replace(
+            /&/g,
+            "&amp;"
         )
-        .forEach(button => {
 
-            button.addEventListener(
-                "click",
-                () => {
-
-                    showSection(
-                        button.dataset.section
-                    );
-                }
-            );
-        });
-
-
-    // All buttons using data-section
-
-    document
-        .querySelectorAll(
-            "[data-section]:not(.side-navigation button)"
+        .replace(
+            /</g,
+            "&lt;"
         )
-        .forEach(button => {
 
-            button.addEventListener(
-                "click",
-                () => {
-
-                    const section =
-                        button.dataset.section;
-
-                    if (section) {
-                        showSection(section);
-                    }
-                }
-            );
-        });
-
-
-    // Profile menu
-
-    document
-        .querySelectorAll(
-            "[data-profile-section]"
+        .replace(
+            />/g,
+            "&gt;"
         )
-        .forEach(button => {
 
-            button.addEventListener(
-                "click",
-                () => {
+        .replace(
+            /"/g,
+            "&quot;"
+        )
 
-                    showSection(
-                        button.dataset.profileSection
-                    );
-                }
-            );
-        });
-
-
-    $("hamburgerBtn")
-        .addEventListener(
-            "click",
-            openSideMenu
+        .replace(
+            /'/g,
+            "&#039;"
         );
 
-
-    $("closeMenuBtn")
-        .addEventListener(
-            "click",
-            closeSideMenu
-        );
-
-
-    $("menuOverlay")
-        .addEventListener(
-            "click",
-            closeSideMenu
-        );
-
-
-    $("profileButton")
-        .addEventListener(
-            "click",
-            event => {
-
-                event.stopPropagation();
-
-                toggleProfileMenu();
-            }
-        );
-
-
-    document.addEventListener(
-        "click",
-        event => {
-
-            if (
-                !$("profileMenu").contains(event.target) &&
-                !$("profileButton").contains(event.target)
-            ) {
-
-                closeProfileMenu();
-            }
-        }
-    );
 }
 
 
+
 /* =========================================================
-   33. INITIALIZE APPLICATION
+   INITIALIZATION
 ========================================================= */
 
 document.addEventListener(
@@ -3339,197 +4033,55 @@ document.addEventListener(
         );
 
 
-        // Initially hide dashboard
+        /* Apply saved language */
 
-        $("dashboardPage").style.display =
-            "none";
-
-
-        // Apply saved language
-
-        if (selectedLanguage) {
-
-            translatePage(
-                selectedLanguage
-            );
-
-        } else {
-
-            translatePage("en");
-        }
-
-
-        // Initialize language page
-
-        setupLanguagePage();
-
-
-        // Auth navigation
-
-        setupAuthNavigation();
-
-
-        // Login
-
-        $("loginForm")
-            .addEventListener(
-                "submit",
-                loginUser
-            );
-
-
-        // Registration
-
-        $("registrationForm")
-            .addEventListener(
-                "submit",
-                registerUser
-            );
-
-
-        // Forgot password
-
-        $("forgotPasswordBtn")
-            .addEventListener(
-                "click",
-                forgotPassword
-            );
-
-
-        // Demo
-
-        $("demoBtn")
-            .addEventListener(
-                "click",
-                enterDemoDashboard
-            );
-
-
-        // Navigation
-
-        setupNavigation();
-
-
-        // Logout
-
-        $("sideLogoutBtn")
-            .addEventListener(
-                "click",
-                logoutUser
-            );
-
-
-        $("profileLogoutBtn")
-            .addEventListener(
-                "click",
-                logoutUser
-            );
-
-
-        // Weather
-
-        $("refreshWeatherBtn")
-            .addEventListener(
-                "click",
-                refreshWeather
-            );
-
-
-        // Market
-
-        $("cropPriceSelector")
-            .addEventListener(
-                "change",
-                updateMarketTable
-            );
-
-
-        // Crop health
-
-        setupCropImage();
-
-
-        $("analyzeCropBtn")
-            .addEventListener(
-                "click",
-                analyzeCrop
-            );
-
-
-        // Government schemes
-
-        setupGovernmentSchemes();
-
-
-        // AI
-
-        $("aiForm")
-            .addEventListener(
-                "submit",
-                handleAIQuestion
-            );
-
-
-        // Voice
-
-        $("startVoiceBtn")
-            .addEventListener(
-                "click",
-                startVoiceRecognition
-            );
-
-
-        $("stopVoiceBtn")
-            .addEventListener(
-                "click",
-                stopVoiceRecognition
-            );
-
-
-        // Profile
-
-        $("editProfileBtn")
-            .addEventListener(
-                "click",
-                enableProfileEditing
-            );
-
-
-        $("cancelProfileEditBtn")
-            .addEventListener(
-                "click",
-                cancelProfileEditing
-            );
-
-
-        $("profileForm")
-            .addEventListener(
-                "submit",
-                saveProfile
-            );
-
-
-        // Settings
-
-        setupSettings();
-
-
-        // Select default language
-
-        if (selectedLanguage) {
-
-            updateLanguageSelectionUI();
-
-        } else {
-
-            showScreen("languagePage");
-        }
-
-
-        // Initial connection status
-
-        setConnectionStatus(
-            navigator.onLine
+        applyLanguage(
+            selectedLanguage
         );
+
+
+        /* Initialize modules */
+
+        initializeLanguagePage();
+
+        initializeLogin();
+
+        initializeRegistration();
+
+        initializeNavigation();
+
+        initializeSideMenu();
+
+        initializeProfileMenu();
+
+        initializeLogout();
+
+        initializeConnectionEvents();
+
+        initializeLanguageSelectors();
+
+        initializeSettings();
+
+        initializeSchemeButtons();
+
+        initializeWeather();
+
+        initializeMarket();
+
+        initializeCropHealth();
+
+        initializeAI();
+
+        initializeVoice();
+
+        initializeProfile();
+
+        updateConnectionStatus();
+
+
+        /* Firebase authentication */
+
+        initializeAuthState();
+
     }
 );
