@@ -2,65 +2,44 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <meta name="theme-color"
-          content="#1E4620">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>SmartAgri</title>
 
-    <link rel="stylesheet"
-          href="style.css">
+    <link rel="stylesheet" href="style.css">
 
     <!-- =====================================================
          FIREBASE
     ====================================================== -->
 
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 </head>
 
-
 <body>
-
 
 <!-- =========================================================
      LANGUAGE PAGE
 ========================================================= -->
 
-<section id="languagePage"
-         class="screen active-screen">
+<section id="languagePage" class="screen active-screen">
 
     <div class="language-card">
 
         <div class="brand-logo small-logo">
-
-            <img src="logo.png"
-                 alt="SmartAgri Logo">
-
+            <img src="logo.png" alt="SmartAgri Logo">
         </div>
-
 
         <h1 data-i18n="appName">
             SmartAgri
         </h1>
 
-
-        <p class="subtitle"
-           data-i18n="appTagline">
-
+        <p class="subtitle" data-i18n="appTagline">
             Smart Agriculture Market Intelligence System
-
         </p>
-
 
         <div class="language-content">
 
@@ -68,14 +47,11 @@
                 Choose Your Language
             </h2>
 
-
             <p data-i18n="languageDescription">
                 Select your preferred language to continue.
             </p>
 
-
             <div class="language-options">
-
 
                 <button type="button"
                         class="language-option"
@@ -86,15 +62,8 @@
                     </span>
 
                     <span>
-
-                        <strong>
-                            English
-                        </strong>
-
-                        <small>
-                            English
-                        </small>
-
+                        <strong>English</strong>
+                        <small>English</small>
                     </span>
 
                 </button>
@@ -109,15 +78,8 @@
                     </span>
 
                     <span>
-
-                        <strong>
-                            हिन्दी
-                        </strong>
-
-                        <small>
-                            Hindi
-                        </small>
-
+                        <strong>हिन्दी</strong>
+                        <small>Hindi</small>
                     </span>
 
                 </button>
@@ -132,19 +94,11 @@
                     </span>
 
                     <span>
-
-                        <strong>
-                            मराठी
-                        </strong>
-
-                        <small>
-                            Marathi
-                        </small>
-
+                        <strong>मराठी</strong>
+                        <small>Marathi</small>
                     </span>
 
                 </button>
-
 
             </div>
 
@@ -159,7 +113,6 @@
 
             </button>
 
-
         </div>
 
     </div>
@@ -167,40 +120,28 @@
 </section>
 
 
-
 <!-- =========================================================
      LOGIN
 ========================================================= -->
 
-<section id="loginPage"
-         class="screen">
+<section id="loginPage" class="screen">
 
     <div class="auth-card">
 
-
         <div class="brand-logo">
-
-            <img src="logo.png"
-                 alt="SmartAgri Logo">
-
+            <img src="logo.png" alt="SmartAgri Logo">
         </div>
-
 
         <h1 data-i18n="loginTitle">
             Farmer Login
         </h1>
 
-
-        <p class="subtitle"
-           data-i18n="loginSubtitle">
-
+        <p class="subtitle" data-i18n="loginSubtitle">
             Login to access SmartAgri
-
         </p>
 
 
         <form id="loginForm">
-
 
             <div class="form-group">
 
@@ -270,7 +211,6 @@
 
             </button>
 
-
         </form>
 
 
@@ -304,7 +244,6 @@
                 Don't have an account?
             </span>
 
-
             <button type="button"
                     id="showRegisterBtn"
                     class="link-button"
@@ -326,28 +265,21 @@
 
         </button>
 
-
     </div>
 
 </section>
-
 
 
 <!-- =========================================================
      REGISTRATION
 ========================================================= -->
 
-<section id="registerPage"
-         class="screen">
+<section id="registerPage" class="screen">
 
     <div class="auth-card registration-card">
 
-
         <div class="brand-logo">
-
-            <img src="logo.png"
-                 alt="SmartAgri Logo">
-
+            <img src="logo.png" alt="SmartAgri Logo">
         </div>
 
 
@@ -417,7 +349,6 @@
 
             <div class="form-row">
 
-
                 <div class="form-group">
 
                     <label for="registerVillage"
@@ -445,11 +376,9 @@
 
                     <input type="text"
                            id="registerState"
-                           value="Maharashtra"
                            required>
 
                 </div>
-
 
             </div>
 
@@ -465,7 +394,6 @@
 
                 <input type="text"
                        id="registerLandArea"
-                       placeholder="Example: 2.5 acres"
                        required>
 
             </div>
@@ -575,7 +503,6 @@
 
             </button>
 
-
         </form>
 
 
@@ -590,7 +517,6 @@
                 Already have an account?
             </span>
 
-
             <button type="button"
                     id="showLoginBtn"
                     class="link-button"
@@ -602,22 +528,22 @@
 
         </p>
 
-
     </div>
 
 </section>
 
 
-
 <!-- =========================================================
-     DASHBOARD
+     DASHBOARD APPLICATION
 ========================================================= -->
 
 <section id="dashboardPage"
          class="dashboard-page">
 
 
-    <!-- HEADER -->
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
 
     <header class="main-header">
 
@@ -694,21 +620,19 @@
 
                 <span class="profile-name-header"
                       id="headerFarmerName">
-
-                    Farmer
-
+                    —
                 </span>
 
             </button>
-
 
         </div>
 
     </header>
 
 
-
-    <!-- SIDE MENU -->
+    <!-- =====================================================
+         SIDE MENU
+    ====================================================== -->
 
     <aside id="sideMenu"
            class="side-menu">
@@ -726,11 +650,9 @@
 
 
             <div>
-
                 <strong>
                     SmartAgri
                 </strong>
-
             </div>
 
 
@@ -742,7 +664,6 @@
 
             </button>
 
-
         </div>
 
 
@@ -753,6 +674,7 @@
                     data-section="dashboardSection">
 
                 🏠
+
                 <span data-i18n="dashboard">
                     Dashboard
                 </span>
@@ -764,6 +686,7 @@
                     data-section="weatherSection">
 
                 🌦️
+
                 <span data-i18n="weather">
                     Weather
                 </span>
@@ -775,6 +698,7 @@
                     data-section="marketSection">
 
                 📈
+
                 <span data-i18n="marketPrices">
                     Market Prices
                 </span>
@@ -786,6 +710,7 @@
                     data-section="comparisonSection">
 
                 📊
+
                 <span data-i18n="marketComparison">
                     Market Comparison
                 </span>
@@ -797,6 +722,7 @@
                     data-section="cropSection">
 
                 🌾
+
                 <span data-i18n="cropInformation">
                     Crop Information
                 </span>
@@ -808,6 +734,7 @@
                     data-section="healthSection">
 
                 🩺
+
                 <span data-i18n="cropHealth">
                     Crop Health
                 </span>
@@ -819,6 +746,7 @@
                     data-section="schemesSection">
 
                 🏛️
+
                 <span data-i18n="governmentSchemes">
                     Government Schemes
                 </span>
@@ -830,6 +758,7 @@
                     data-section="aiSection">
 
                 🤖
+
                 <span data-i18n="aiAssistant">
                     AI Assistant
                 </span>
@@ -841,6 +770,7 @@
                     data-section="voiceSection">
 
                 🎙️
+
                 <span data-i18n="voiceAssistance">
                     Voice Assistance
                 </span>
@@ -852,6 +782,7 @@
                     data-section="profileSection">
 
                 👨‍🌾
+
                 <span data-i18n="farmerProfile">
                     Farmer Profile
                 </span>
@@ -863,6 +794,7 @@
                     data-section="settingsSection">
 
                 ⚙️
+
                 <span data-i18n="settings">
                     Settings
                 </span>
@@ -874,33 +806,31 @@
                     data-section="aboutSection">
 
                 ℹ️
+
                 <span data-i18n="about">
                     About SmartAgri
                 </span>
 
             </button>
 
-
         </nav>
 
 
         <div class="side-menu-footer">
-
 
             <button type="button"
                     id="sideLogoutBtn"
                     class="logout-menu-button">
 
                 🚪
+
                 <span data-i18n="logout">
                     Logout
                 </span>
 
             </button>
 
-
         </div>
-
 
     </aside>
 
@@ -910,8 +840,9 @@
     </div>
 
 
-
-    <!-- PROFILE MENU -->
+    <!-- =====================================================
+         PROFILE MENU
+    ====================================================== -->
 
     <div id="profileMenu"
          class="profile-menu">
@@ -953,20 +884,18 @@
 
         </button>
 
-
     </div>
 
 
-
     <!-- =====================================================
-         MAIN
+         MAIN CONTENT
     ====================================================== -->
 
     <main class="main-content">
 
 
         <!-- =================================================
-             DASHBOARD
+             DASHBOARD SECTION
         ================================================== -->
 
         <section id="dashboardSection"
@@ -993,7 +922,7 @@
                         </span>,
 
                         <span id="dashboardFarmerName">
-                            Farmer
+                            —
                         </span>
 
                         🌱
@@ -1002,11 +931,8 @@
 
 
                     <p data-i18n="dashboardSubtitle">
-
                         Your farming information in one place.
-
                     </p>
-
 
                 </div>
 
@@ -1025,18 +951,14 @@
                         </strong>
 
                         <small data-i18n="connectionStatus">
-
                             Connection Status
-
                         </small>
 
                     </div>
 
                 </div>
 
-
             </div>
-
 
 
             <div class="card profile-summary-card">
@@ -1069,7 +991,6 @@
                         </span>
 
                     </button>
-
 
                 </div>
 
@@ -1128,16 +1049,12 @@
 
                     </div>
 
-
                 </div>
-
 
             </div>
 
 
-
             <div class="section-heading">
-
 
                 <div>
 
@@ -1151,9 +1068,7 @@
 
                 </div>
 
-
             </div>
-
 
 
             <div class="quick-action-grid">
@@ -1214,9 +1129,7 @@
 
                 </button>
 
-
             </div>
-
 
 
             <div class="data-notice">
@@ -1239,12 +1152,12 @@
 
             </div>
 
-
         </section>
 
 
-
-        <!-- WEATHER -->
+        <!-- =================================================
+             WEATHER
+        ================================================== -->
 
         <section id="weatherSection"
                  class="app-section">
@@ -1295,13 +1208,16 @@
                 <div id="weatherEmptyState"
                      class="empty-state">
 
+
                     <div class="empty-icon">
                         🌦️
                     </div>
 
+
                     <h3 data-i18n="weatherUnavailable">
                         Weather data unavailable
                     </h3>
+
 
                     <p data-i18n="weatherUnavailableDescription">
                         No verified weather data has been received.
@@ -1373,18 +1289,16 @@
 
                     </div>
 
-
                 </div>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- MARKET -->
+        <!-- =================================================
+             MARKET PRICES
+        ================================================== -->
 
         <section id="marketSection"
                  class="app-section">
@@ -1421,12 +1335,16 @@
 
                         <option value="onion"
                                 data-i18n="onion">
+
                             Onion
+
                         </option>
 
                         <option value="wheat"
                                 data-i18n="wheat">
+
                             Wheat
+
                         </option>
 
                     </select>
@@ -1465,7 +1383,6 @@
 
                         <tbody id="marketTableBody">
 
-
                             <tr>
 
                                 <td colspan="4">
@@ -1490,23 +1407,20 @@
 
                             </tr>
 
-
                         </tbody>
-
 
                     </table>
 
                 </div>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- COMPARISON -->
+        <!-- =================================================
+             MARKET COMPARISON
+        ================================================== -->
 
         <section id="comparisonSection"
                  class="app-section">
@@ -1614,15 +1528,14 @@
 
                 </div>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- CROP INFORMATION -->
+        <!-- =================================================
+             CROP INFORMATION
+        ================================================== -->
 
         <section id="cropSection"
                  class="app-section">
@@ -1658,6 +1571,7 @@
                         Onion cultivation information.
                     </p>
 
+
                     <div class="crop-list">
 
                         <span data-i18n="cultivationGuidance">
@@ -1691,6 +1605,7 @@
                         Wheat cultivation information.
                     </p>
 
+
                     <div class="crop-list">
 
                         <span data-i18n="cultivationGuidance">
@@ -1709,15 +1624,14 @@
 
                 </div>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- CROP HEALTH -->
+        <!-- =================================================
+             CROP HEALTH
+        ================================================== -->
 
         <section id="healthSection"
                  class="app-section">
@@ -1741,13 +1655,16 @@
 
                 <div class="health-upload">
 
+
                     <div class="upload-icon">
                         🩺
                     </div>
 
+
                     <h2 data-i18n="uploadCropImage">
                         Upload Crop / Leaf Image
                     </h2>
+
 
                     <p data-i18n="uploadCropDescription">
                         Select an image for crop health analysis.
@@ -1791,16 +1708,17 @@
 
                     </button>
 
-
                 </div>
 
 
                 <div id="cropAnalysisResult"
                      class="analysis-result">
 
+
                     <strong data-i18n="analysisNotConnected">
                         AI crop analysis is not connected
                     </strong>
+
 
                     <p data-i18n="analysisNotConnectedDescription">
                         Connect a verified crop-health AI service before
@@ -1809,15 +1727,14 @@
 
                 </div>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- GOVERNMENT SCHEMES -->
+        <!-- =================================================
+             GOVERNMENT SCHEMES
+        ================================================== -->
 
         <section id="schemesSection"
                  class="app-section">
@@ -1853,6 +1770,7 @@
                         Official PM-KISAN farmer support information.
                     </p>
 
+
                     <button type="button"
                             class="outline-button scheme-button"
                             data-scheme-url="https://pmkisan.gov.in/"
@@ -1878,6 +1796,7 @@
                     <p data-i18n="pmksyDescription">
                         Official irrigation and water-management information.
                     </p>
+
 
                     <button type="button"
                             class="outline-button scheme-button"
@@ -1905,6 +1824,7 @@
                         Official Pradhan Mantri Fasal Bima Yojana information.
                     </p>
 
+
                     <button type="button"
                             class="outline-button scheme-button"
                             data-scheme-url="https://pmfby.gov.in/"
@@ -1916,15 +1836,14 @@
 
                 </div>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- AI ASSISTANT -->
+        <!-- =================================================
+             AI ASSISTANT
+        ================================================== -->
 
         <section id="aiSection"
                  class="app-section">
@@ -1947,6 +1866,7 @@
 
 
                 <div class="ai-header">
+
 
                     <div class="ai-avatar">
                         🤖
@@ -1972,7 +1892,6 @@
 
                     </div>
 
-
                 </div>
 
 
@@ -1982,9 +1901,11 @@
 
                     <div class="chat-message assistant-message">
 
+
                         <div class="chat-avatar">
                             🤖
                         </div>
+
 
                         <div>
 
@@ -1999,7 +1920,6 @@
                         </div>
 
                     </div>
-
 
                 </div>
 
@@ -2022,7 +1942,6 @@
 
                     </button>
 
-
                 </form>
 
 
@@ -2033,15 +1952,14 @@
 
                 </p>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- VOICE -->
+        <!-- =================================================
+             VOICE ASSISTANCE
+        ================================================== -->
 
         <section id="voiceSection"
                  class="app-section">
@@ -2110,10 +2028,12 @@
                         Voice Input
                     </label>
 
+
                     <textarea id="voiceInput"
                               readonly
                               data-i18n-placeholder="voiceInputPlaceholder"
-                              placeholder="Voice input will appear here..."></textarea>
+                              placeholder="Voice input will appear here...">
+                    </textarea>
 
                 </div>
 
@@ -2124,6 +2044,7 @@
                         Voice Response
                     </label>
 
+
                     <p id="voiceResponse"
                        data-i18n="voiceReady">
 
@@ -2133,15 +2054,14 @@
 
                 </div>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- PROFILE -->
+        <!-- =================================================
+             PROFILE
+        ================================================== -->
 
         <section id="profileSection"
                  class="app-section">
@@ -2174,7 +2094,7 @@
                     <div>
 
                         <h2 id="profilePageName">
-                            Farmer
+                            —
                         </h2>
 
                         <p id="profilePageEmail">
@@ -2195,7 +2115,6 @@
                         </span>
 
                     </button>
-
 
                 </div>
 
@@ -2356,7 +2275,6 @@
 
                         </div>
 
-
                     </div>
 
 
@@ -2386,9 +2304,7 @@
 
                         </button>
 
-
                     </div>
-
 
                 </form>
 
@@ -2397,15 +2313,14 @@
                      class="message">
                 </div>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- SETTINGS -->
+        <!-- =================================================
+             SETTINGS
+        ================================================== -->
 
         <section id="settingsSection"
                  class="app-section">
@@ -2515,15 +2430,14 @@
 
                 </div>
 
-
             </div>
-
 
         </section>
 
 
-
-        <!-- ABOUT -->
+        <!-- =================================================
+             ABOUT
+        ================================================== -->
 
         <section id="aboutSection"
                  class="app-section">
@@ -2564,7 +2478,9 @@
 
                     <div>
 
-                        <span>📈</span>
+                        <span>
+                            📈
+                        </span>
 
                         <strong data-i18n="marketIntelligence">
                             Market Intelligence
@@ -2575,7 +2491,9 @@
 
                     <div>
 
-                        <span>🌾</span>
+                        <span>
+                            🌾
+                        </span>
 
                         <strong data-i18n="cropInformation">
                             Crop Information
@@ -2586,7 +2504,9 @@
 
                     <div>
 
-                        <span>🤖</span>
+                        <span>
+                            🤖
+                        </span>
 
                         <strong data-i18n="aiAssistant">
                             AI Assistance
@@ -2597,14 +2517,15 @@
 
                     <div>
 
-                        <span>🌐</span>
+                        <span>
+                            🌐
+                        </span>
 
                         <strong data-i18n="multilingualSupport">
                             Multilingual Support
                         </strong>
 
                     </div>
-
 
                 </div>
 
@@ -2618,15 +2539,11 @@
 
                 </p>
 
-
             </div>
-
 
         </section>
 
-
     </main>
-
 
 
     <!-- =====================================================
@@ -2652,7 +2569,6 @@
 </section>
 
 
-
 <!-- =========================================================
      JAVASCRIPT
 ========================================================= -->
@@ -2660,5 +2576,4 @@
 <script src="script.js"></script>
 
 </body>
-
 </html>
