@@ -1,182 +1,302 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <meta name="theme-color"
+          content="#1E4620">
 
     <title>SmartAgri</title>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet"
+          href="style.css">
 
-    <!-- Firebase -->
+    <!-- =====================================================
+         FIREBASE
+    ====================================================== -->
+
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
 </head>
 
+
 <body>
+
 
 <!-- =========================================================
      LANGUAGE PAGE
 ========================================================= -->
 
-<section id="languagePage" class="screen active-screen">
+<section id="languagePage"
+         class="screen active-screen">
 
     <div class="language-card">
 
         <div class="brand-logo small-logo">
-            <img src="logo.png" alt="SmartAgri Logo">
+
+            <img src="logo.png"
+                 alt="SmartAgri Logo">
+
         </div>
 
-        <h1 data-i18n="appName">SmartAgri</h1>
 
-        <p class="subtitle" data-i18n="appTagline">
+        <h1 data-i18n="appName">
+            SmartAgri
+        </h1>
+
+
+        <p class="subtitle"
+           data-i18n="appTagline">
+
             Smart Agriculture Market Intelligence System
+
         </p>
+
 
         <div class="language-content">
 
-            <h2 data-i18n="chooseLanguage">Choose Your Language</h2>
+            <h2 data-i18n="chooseLanguage">
+                Choose Your Language
+            </h2>
+
 
             <p data-i18n="languageDescription">
                 Select your preferred language to continue.
             </p>
 
+
             <div class="language-options">
+
 
                 <button type="button"
                         class="language-option"
                         data-language="en">
 
-                    <span class="language-symbol">EN</span>
+                    <span class="language-symbol">
+                        EN
+                    </span>
 
                     <span>
-                        <strong>English</strong>
-                        <small>English</small>
+
+                        <strong>
+                            English
+                        </strong>
+
+                        <small>
+                            English
+                        </small>
+
                     </span>
 
                 </button>
+
 
                 <button type="button"
                         class="language-option"
                         data-language="hi">
 
-                    <span class="language-symbol">हि</span>
+                    <span class="language-symbol">
+                        हि
+                    </span>
 
                     <span>
-                        <strong>हिन्दी</strong>
-                        <small>Hindi</small>
+
+                        <strong>
+                            हिन्दी
+                        </strong>
+
+                        <small>
+                            Hindi
+                        </small>
+
                     </span>
 
                 </button>
+
 
                 <button type="button"
                         class="language-option"
                         data-language="mr">
 
-                    <span class="language-symbol">म</span>
+                    <span class="language-symbol">
+                        म
+                    </span>
 
                     <span>
-                        <strong>मराठी</strong>
-                        <small>Marathi</small>
+
+                        <strong>
+                            मराठी
+                        </strong>
+
+                        <small>
+                            Marathi
+                        </small>
+
                     </span>
 
                 </button>
 
+
             </div>
+
 
             <button type="button"
                     id="continueLanguageBtn"
                     class="primary-button"
                     disabled
                     data-i18n="continue">
+
                 Continue
+
             </button>
 
+
         </div>
+
     </div>
+
 </section>
+
 
 
 <!-- =========================================================
      LOGIN
 ========================================================= -->
 
-<section id="loginPage" class="screen">
+<section id="loginPage"
+         class="screen">
 
     <div class="auth-card">
 
+
         <div class="brand-logo">
-            <img src="logo.png" alt="SmartAgri Logo">
+
+            <img src="logo.png"
+                 alt="SmartAgri Logo">
+
         </div>
 
-        <h1 data-i18n="loginTitle">Farmer Login</h1>
 
-        <p class="subtitle" data-i18n="loginSubtitle">
+        <h1 data-i18n="loginTitle">
+            Farmer Login
+        </h1>
+
+
+        <p class="subtitle"
+           data-i18n="loginSubtitle">
+
             Login to access SmartAgri
+
         </p>
+
 
         <form id="loginForm">
 
+
             <div class="form-group">
-                <label for="loginEmail" data-i18n="email">Email</label>
+
+                <label for="loginEmail"
+                       data-i18n="email">
+
+                    Email
+
+                </label>
 
                 <input type="email"
                        id="loginEmail"
                        required
                        autocomplete="email">
+
             </div>
 
+
             <div class="form-group">
-                <label for="loginPassword" data-i18n="password">
+
+                <label for="loginPassword"
+                       data-i18n="password">
+
                     Password
+
                 </label>
 
                 <input type="password"
                        id="loginPassword"
                        required
                        autocomplete="current-password">
+
             </div>
+
 
             <div class="remember-row">
 
                 <label class="checkbox-label">
-                    <input type="checkbox" id="rememberMe">
+
+                    <input type="checkbox"
+                           id="rememberMe">
 
                     <span data-i18n="rememberMe">
                         Remember Me
                     </span>
+
                 </label>
+
 
                 <button type="button"
                         id="forgotPasswordBtn"
                         class="small-link"
                         data-i18n="forgotPassword">
+
                     Forgot Password?
+
                 </button>
 
             </div>
 
+
             <button type="submit"
                     class="primary-button"
                     data-i18n="login">
+
                 Login
+
             </button>
+
 
         </form>
 
-        <div id="loginMessage" class="message"></div>
+
+        <div id="loginMessage"
+             class="message">
+        </div>
+
 
         <div class="auth-divider">
-            <span data-i18n="or">OR</span>
+
+            <span data-i18n="or">
+                OR
+            </span>
+
         </div>
+
 
         <button type="button"
                 id="demoBtn"
                 class="secondary-button"
                 data-i18n="demoDashboard">
+
             Enter Demo Dashboard
+
         </button>
+
 
         <p class="account-question">
 
@@ -184,183 +304,285 @@
                 Don't have an account?
             </span>
 
+
             <button type="button"
                     id="showRegisterBtn"
                     class="link-button"
                     data-i18n="register">
+
                 Register
+
             </button>
 
         </p>
+
 
         <button type="button"
                 id="changeLanguageFromLogin"
                 class="text-button"
                 data-i18n="changeLanguage">
+
             Change Language
+
         </button>
 
+
     </div>
+
 </section>
+
 
 
 <!-- =========================================================
      REGISTRATION
 ========================================================= -->
 
-<section id="registerPage" class="screen">
+<section id="registerPage"
+         class="screen">
 
     <div class="auth-card registration-card">
 
+
         <div class="brand-logo">
-            <img src="logo.png" alt="SmartAgri Logo">
+
+            <img src="logo.png"
+                 alt="SmartAgri Logo">
+
         </div>
+
 
         <h1 data-i18n="registrationTitle">
             Farmer Registration
         </h1>
 
-        <p class="subtitle" data-i18n="registrationSubtitle">
+
+        <p class="subtitle"
+           data-i18n="registrationSubtitle">
+
             Create your SmartAgri farmer account
+
         </p>
+
 
         <form id="registrationForm">
 
+
             <div class="form-group">
-                <label for="registerName" data-i18n="fullName">
+
+                <label for="registerName"
+                       data-i18n="fullName">
+
                     Full Name
+
                 </label>
 
                 <input type="text"
                        id="registerName"
                        required>
+
             </div>
 
+
             <div class="form-group">
-                <label for="registerEmail" data-i18n="email">
+
+                <label for="registerEmail"
+                       data-i18n="email">
+
                     Email
+
                 </label>
 
                 <input type="email"
                        id="registerEmail"
                        required>
+
             </div>
 
+
             <div class="form-group">
-                <label for="registerMobile" data-i18n="mobile">
+
+                <label for="registerMobile"
+                       data-i18n="mobile">
+
                     Mobile Number
+
                 </label>
 
                 <input type="tel"
                        id="registerMobile"
                        required>
+
             </div>
+
 
             <div class="form-row">
 
+
                 <div class="form-group">
-                    <label for="registerVillage" data-i18n="village">
+
+                    <label for="registerVillage"
+                           data-i18n="village">
+
                         Village
+
                     </label>
 
                     <input type="text"
                            id="registerVillage"
                            required>
+
                 </div>
 
+
                 <div class="form-group">
-                    <label for="registerState" data-i18n="state">
+
+                    <label for="registerState"
+                           data-i18n="state">
+
                         State
+
                     </label>
 
                     <input type="text"
                            id="registerState"
+                           value="Maharashtra"
                            required>
+
                 </div>
+
 
             </div>
 
+
             <div class="form-group">
 
-                <label for="registerLandArea" data-i18n="landArea">
+                <label for="registerLandArea"
+                       data-i18n="landArea">
+
                     Land Area
+
                 </label>
 
                 <input type="text"
                        id="registerLandArea"
+                       placeholder="Example: 2.5 acres"
                        required>
+
             </div>
+
 
             <div class="form-group">
 
                 <label for="registerMarket"
                        data-i18n="preferredMarket">
+
                     Preferred Market
+
                 </label>
 
-                <select id="registerMarket" required>
 
-                    <option value="" data-i18n="selectMarket">
+                <select id="registerMarket"
+                        required>
+
+                    <option value=""
+                            data-i18n="selectMarket">
+
                         Select Market
+
                     </option>
+
 
                     <option value="Kopargaon APMC"
                             data-i18n="kopargaonMarket">
+
                         Kopargaon APMC
+
                     </option>
+
 
                     <option value="Yeola Market"
                             data-i18n="yeolaMarket">
+
                         Yeola Market
+
                     </option>
+
 
                     <option value="Shirdi Market"
                             data-i18n="shirdiMarket">
+
                         Shirdi Market
+
                     </option>
 
                 </select>
+
             </div>
+
 
             <div class="form-group">
 
                 <label for="registerLanguage"
                        data-i18n="preferredLanguage">
+
                     Preferred Language
+
                 </label>
+
 
                 <select id="registerLanguage">
 
-                    <option value="en">English</option>
-                    <option value="hi">हिन्दी</option>
-                    <option value="mr">मराठी</option>
+                    <option value="en">
+                        English
+                    </option>
+
+                    <option value="hi">
+                        हिन्दी
+                    </option>
+
+                    <option value="mr">
+                        मराठी
+                    </option>
 
                 </select>
 
             </div>
 
+
             <div class="form-group">
 
                 <label for="registerPassword"
                        data-i18n="password">
+
                     Password
+
                 </label>
+
 
                 <input type="password"
                        id="registerPassword"
                        minlength="6"
                        required>
+
             </div>
+
 
             <button type="submit"
                     class="primary-button"
                     data-i18n="createAccount">
+
                 Create Account
+
             </button>
+
 
         </form>
 
-        <div id="registerMessage" class="message"></div>
+
+        <div id="registerMessage"
+             class="message">
+        </div>
+
 
         <p class="account-question">
 
@@ -368,28 +590,37 @@
                 Already have an account?
             </span>
 
+
             <button type="button"
                     id="showLoginBtn"
                     class="link-button"
                     data-i18n="login">
+
                 Login
+
             </button>
 
         </p>
 
+
     </div>
+
 </section>
+
 
 
 <!-- =========================================================
      DASHBOARD
 ========================================================= -->
 
-<section id="dashboardPage" class="dashboard-page">
+<section id="dashboardPage"
+         class="dashboard-page">
+
 
     <!-- HEADER -->
 
     <header class="main-header">
+
 
         <button type="button"
                 id="hamburgerBtn"
@@ -402,17 +633,23 @@
 
         </button>
 
+
         <div class="header-brand">
 
-            <img src="logo.png" alt="SmartAgri Logo">
+            <img src="logo.png"
+                 alt="SmartAgri Logo">
 
             <div>
-                <strong>SmartAgri</strong>
+                <strong>
+                    SmartAgri
+                </strong>
             </div>
 
         </div>
 
+
         <div class="header-actions">
+
 
             <div id="connectionStatus"
                  class="connection-status offline">
@@ -421,142 +658,234 @@
 
                 <span id="connectionText"
                       data-i18n="offline">
+
                     Offline
+
                 </span>
 
             </div>
 
+
             <select id="dashboardLanguage"
                     class="header-language">
 
-                <option value="en">EN</option>
-                <option value="hi">हि</option>
-                <option value="mr">म</option>
+                <option value="en">
+                    EN
+                </option>
+
+                <option value="hi">
+                    हि
+                </option>
+
+                <option value="mr">
+                    म
+                </option>
 
             </select>
+
 
             <button type="button"
                     id="profileButton"
                     class="profile-button">
 
-                <span class="profile-avatar">👨‍🌾</span>
+                <span class="profile-avatar">
+                    👨‍🌾
+                </span>
 
                 <span class="profile-name-header"
                       id="headerFarmerName">
+
                     Farmer
+
                 </span>
 
             </button>
 
+
         </div>
+
     </header>
+
 
 
     <!-- SIDE MENU -->
 
-    <aside id="sideMenu" class="side-menu">
+    <aside id="sideMenu"
+           class="side-menu">
+
 
         <div class="side-menu-header">
 
+
             <div class="menu-logo">
-                <img src="logo.png" alt="SmartAgri">
+
+                <img src="logo.png"
+                     alt="SmartAgri">
+
             </div>
 
+
             <div>
-                <strong>SmartAgri</strong>
+
+                <strong>
+                    SmartAgri
+                </strong>
+
             </div>
+
 
             <button type="button"
                     id="closeMenuBtn"
                     class="close-menu-button">
+
                 ×
+
             </button>
+
 
         </div>
 
+
         <nav class="side-navigation">
 
-            <button type="button" data-section="dashboardSection">
+
+            <button type="button"
+                    data-section="dashboardSection">
+
                 🏠
-                <span data-i18n="dashboard">Dashboard</span>
+                <span data-i18n="dashboard">
+                    Dashboard
+                </span>
+
             </button>
 
-            <button type="button" data-section="weatherSection">
+
+            <button type="button"
+                    data-section="weatherSection">
+
                 🌦️
-                <span data-i18n="weather">Weather</span>
+                <span data-i18n="weather">
+                    Weather
+                </span>
+
             </button>
 
-            <button type="button" data-section="marketSection">
+
+            <button type="button"
+                    data-section="marketSection">
+
                 📈
-                <span data-i18n="marketPrices">Market Prices</span>
+                <span data-i18n="marketPrices">
+                    Market Prices
+                </span>
+
             </button>
 
-            <button type="button" data-section="comparisonSection">
+
+            <button type="button"
+                    data-section="comparisonSection">
+
                 📊
                 <span data-i18n="marketComparison">
                     Market Comparison
                 </span>
+
             </button>
 
-            <button type="button" data-section="cropSection">
+
+            <button type="button"
+                    data-section="cropSection">
+
                 🌾
                 <span data-i18n="cropInformation">
                     Crop Information
                 </span>
+
             </button>
 
-            <button type="button" data-section="healthSection">
+
+            <button type="button"
+                    data-section="healthSection">
+
                 🩺
                 <span data-i18n="cropHealth">
                     Crop Health
                 </span>
+
             </button>
 
-            <button type="button" data-section="schemesSection">
+
+            <button type="button"
+                    data-section="schemesSection">
+
                 🏛️
                 <span data-i18n="governmentSchemes">
                     Government Schemes
                 </span>
+
             </button>
 
-            <button type="button" data-section="aiSection">
+
+            <button type="button"
+                    data-section="aiSection">
+
                 🤖
                 <span data-i18n="aiAssistant">
                     AI Assistant
                 </span>
+
             </button>
 
-            <button type="button" data-section="voiceSection">
+
+            <button type="button"
+                    data-section="voiceSection">
+
                 🎙️
                 <span data-i18n="voiceAssistance">
                     Voice Assistance
                 </span>
+
             </button>
 
-            <button type="button" data-section="profileSection">
+
+            <button type="button"
+                    data-section="profileSection">
+
                 👨‍🌾
                 <span data-i18n="farmerProfile">
                     Farmer Profile
                 </span>
+
             </button>
 
-            <button type="button" data-section="settingsSection">
+
+            <button type="button"
+                    data-section="settingsSection">
+
                 ⚙️
                 <span data-i18n="settings">
                     Settings
                 </span>
+
             </button>
 
-            <button type="button" data-section="aboutSection">
+
+            <button type="button"
+                    data-section="aboutSection">
+
                 ℹ️
                 <span data-i18n="about">
                     About SmartAgri
                 </span>
+
             </button>
+
 
         </nav>
 
+
         <div class="side-menu-footer">
+
 
             <button type="button"
                     id="sideLogoutBtn"
@@ -569,84 +898,118 @@
 
             </button>
 
+
         </div>
+
 
     </aside>
 
-    <div id="menuOverlay" class="menu-overlay"></div>
+
+    <div id="menuOverlay"
+         class="menu-overlay">
+    </div>
+
 
 
     <!-- PROFILE MENU -->
 
-    <div id="profileMenu" class="profile-menu">
+    <div id="profileMenu"
+         class="profile-menu">
+
 
         <button type="button"
                 data-profile-section="profileSection">
 
             👨‍🌾
+
             <span data-i18n="myProfile">
                 My Profile
             </span>
 
         </button>
 
+
         <button type="button"
                 data-profile-section="settingsSection">
 
             ⚙️
+
             <span data-i18n="settings">
                 Settings
             </span>
 
         </button>
 
+
         <button type="button"
                 id="profileLogoutBtn"
                 class="profile-logout">
 
             🚪
+
             <span data-i18n="logout">
                 Logout
             </span>
 
         </button>
 
+
     </div>
 
 
-    <!-- MAIN -->
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
 
     <main class="main-content">
 
 
-        <!-- DASHBOARD -->
+        <!-- =================================================
+             DASHBOARD
+        ================================================== -->
 
         <section id="dashboardSection"
                  class="app-section active-section">
 
+
             <div class="welcome-section">
+
 
                 <div>
 
                     <p class="eyebrow"
                        data-i18n="dashboard">
+
                         Dashboard
+
                     </p>
 
+
                     <h1>
+
                         <span data-i18n="welcome">
                             Welcome
                         </span>,
+
                         <span id="dashboardFarmerName">
                             Farmer
-                        </span> 🌱
+                        </span>
+
+                        🌱
+
                     </h1>
 
+
                     <p data-i18n="dashboardSubtitle">
+
                         Your farming information in one place.
+
                     </p>
 
+
                 </div>
+
 
                 <div class="dashboard-status-card">
 
@@ -656,23 +1019,31 @@
 
                         <strong id="dashboardConnectionText"
                                 data-i18n="offline">
+
                             Offline
+
                         </strong>
 
                         <small data-i18n="connectionStatus">
+
                             Connection Status
+
                         </small>
 
                     </div>
 
                 </div>
 
+
             </div>
+
 
 
             <div class="card profile-summary-card">
 
+
                 <div class="section-heading">
+
 
                     <div>
 
@@ -686,50 +1057,87 @@
 
                     </div>
 
+
                     <button type="button"
                             class="outline-button"
                             data-section="profileSection">
 
                         ✏️
+
                         <span data-i18n="editProfile">
                             Edit Profile
                         </span>
 
                     </button>
 
+
                 </div>
+
 
                 <div class="summary-grid">
 
-                    <div>
-                        <span data-i18n="fullName">Full Name</span>
-                        <strong id="summaryName">—</strong>
-                    </div>
 
                     <div>
-                        <span data-i18n="village">Village</span>
-                        <strong id="summaryVillage">—</strong>
+
+                        <span data-i18n="fullName">
+                            Full Name
+                        </span>
+
+                        <strong id="summaryName">
+                            —
+                        </strong>
+
                     </div>
 
-                    <div>
-                        <span data-i18n="landArea">Land Area</span>
-                        <strong id="summaryLand">—</strong>
-                    </div>
 
                     <div>
+
+                        <span data-i18n="village">
+                            Village
+                        </span>
+
+                        <strong id="summaryVillage">
+                            —
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span data-i18n="landArea">
+                            Land Area
+                        </span>
+
+                        <strong id="summaryLand">
+                            —
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
                         <span data-i18n="preferredMarket">
                             Preferred Market
                         </span>
 
-                        <strong id="summaryMarket">—</strong>
+                        <strong id="summaryMarket">
+                            —
+                        </strong>
+
                     </div>
 
+
                 </div>
+
 
             </div>
 
 
+
             <div class="section-heading">
+
 
                 <div>
 
@@ -743,15 +1151,20 @@
 
                 </div>
 
+
             </div>
+
 
 
             <div class="quick-action-grid">
 
+
                 <button type="button"
                         data-section="weatherSection">
 
-                    <span class="quick-icon">🌦️</span>
+                    <span class="quick-icon">
+                        🌦️
+                    </span>
 
                     <strong data-i18n="weather">
                         Weather
@@ -759,10 +1172,13 @@
 
                 </button>
 
+
                 <button type="button"
                         data-section="marketSection">
 
-                    <span class="quick-icon">📈</span>
+                    <span class="quick-icon">
+                        📈
+                    </span>
 
                     <strong data-i18n="marketPrices">
                         Market Prices
@@ -770,10 +1186,13 @@
 
                 </button>
 
+
                 <button type="button"
                         data-section="cropSection">
 
-                    <span class="quick-icon">🌾</span>
+                    <span class="quick-icon">
+                        🌾
+                    </span>
 
                     <strong data-i18n="cropInformation">
                         Crop Information
@@ -781,10 +1200,13 @@
 
                 </button>
 
+
                 <button type="button"
                         data-section="healthSection">
 
-                    <span class="quick-icon">🩺</span>
+                    <span class="quick-icon">
+                        🩺
+                    </span>
 
                     <strong data-i18n="cropHealth">
                         Crop Health
@@ -792,12 +1214,16 @@
 
                 </button>
 
+
             </div>
+
 
 
             <div class="data-notice">
 
-                <span>ℹ️</span>
+                <span>
+                    ℹ️
+                </span>
 
                 <div>
 
@@ -813,13 +1239,16 @@
 
             </div>
 
+
         </section>
+
 
 
         <!-- WEATHER -->
 
         <section id="weatherSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -833,21 +1262,27 @@
 
             </div>
 
+
             <div class="card">
+
 
                 <div class="section-heading">
 
                     <div>
+
                         <h2 data-i18n="currentWeather">
                             Current Weather
                         </h2>
+
                     </div>
+
 
                     <button type="button"
                             id="refreshWeatherBtn"
                             class="outline-button">
 
                         🔄
+
                         <span data-i18n="refresh">
                             Refresh
                         </span>
@@ -856,10 +1291,13 @@
 
                 </div>
 
+
                 <div id="weatherEmptyState"
                      class="empty-state">
 
-                    <div class="empty-icon">🌦️</div>
+                    <div class="empty-icon">
+                        🌦️
+                    </div>
 
                     <h3 data-i18n="weatherUnavailable">
                         Weather data unavailable
@@ -871,52 +1309,86 @@
 
                 </div>
 
+
                 <div id="weatherData"
                      class="weather-grid hidden">
 
+
                     <div class="weather-card">
+
                         <span>🌡️</span>
+
                         <small data-i18n="temperature">
                             Temperature
                         </small>
-                        <strong id="weatherTemperature">—</strong>
+
+                        <strong id="weatherTemperature">
+                            —
+                        </strong>
+
                     </div>
 
+
                     <div class="weather-card">
+
                         <span>💧</span>
+
                         <small data-i18n="humidity">
                             Humidity
                         </small>
-                        <strong id="weatherHumidity">—</strong>
+
+                        <strong id="weatherHumidity">
+                            —
+                        </strong>
+
                     </div>
 
+
                     <div class="weather-card">
+
                         <span>💨</span>
+
                         <small data-i18n="windSpeed">
                             Wind Speed
                         </small>
-                        <strong id="weatherWind">—</strong>
+
+                        <strong id="weatherWind">
+                            —
+                        </strong>
+
                     </div>
 
+
                     <div class="weather-card">
+
                         <span>🌧️</span>
+
                         <small data-i18n="rainChance">
                             Rain Chance
                         </small>
-                        <strong id="weatherRain">—</strong>
+
+                        <strong id="weatherRain">
+                            —
+                        </strong>
+
                     </div>
+
 
                 </div>
 
+
             </div>
 
+
         </section>
+
 
 
         <!-- MARKET -->
 
         <section id="marketSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -930,15 +1402,20 @@
 
             </div>
 
+
             <div class="card">
+
 
                 <div class="section-heading">
 
                     <div>
+
                         <h2 data-i18n="marketPriceTable">
                             Market Price Table
                         </h2>
+
                     </div>
+
 
                     <select id="cropPriceSelector">
 
@@ -955,6 +1432,7 @@
                     </select>
 
                 </div>
+
 
                 <div class="table-container">
 
@@ -984,7 +1462,9 @@
 
                         </thead>
 
+
                         <tbody id="marketTableBody">
+
 
                             <tr>
 
@@ -992,7 +1472,9 @@
 
                                     <div class="table-empty">
 
-                                        <span>📊</span>
+                                        <span>
+                                            📊
+                                        </span>
 
                                         <strong data-i18n="marketDataUnavailable">
                                             Market data unavailable
@@ -1008,21 +1490,27 @@
 
                             </tr>
 
+
                         </tbody>
+
 
                     </table>
 
                 </div>
 
+
             </div>
 
+
         </section>
+
 
 
         <!-- COMPARISON -->
 
         <section id="comparisonSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -1036,11 +1524,15 @@
 
             </div>
 
+
             <div class="comparison-grid">
+
 
                 <div class="card market-card">
 
-                    <div class="market-card-icon">🏪</div>
+                    <div class="market-card-icon">
+                        🏪
+                    </div>
 
                     <h3 data-i18n="kopargaonMarket">
                         Kopargaon APMC
@@ -1052,7 +1544,9 @@
                             Price
                         </span>
 
-                        <strong>—</strong>
+                        <strong>
+                            —
+                        </strong>
 
                     </div>
 
@@ -1065,7 +1559,9 @@
 
                 <div class="card market-card">
 
-                    <div class="market-card-icon">🏪</div>
+                    <div class="market-card-icon">
+                        🏪
+                    </div>
 
                     <h3 data-i18n="yeolaMarket">
                         Yeola Market
@@ -1077,7 +1573,9 @@
                             Price
                         </span>
 
-                        <strong>—</strong>
+                        <strong>
+                            —
+                        </strong>
 
                     </div>
 
@@ -1090,7 +1588,9 @@
 
                 <div class="card market-card">
 
-                    <div class="market-card-icon">🏪</div>
+                    <div class="market-card-icon">
+                        🏪
+                    </div>
 
                     <h3 data-i18n="shirdiMarket">
                         Shirdi Market
@@ -1102,7 +1602,9 @@
                             Price
                         </span>
 
-                        <strong>—</strong>
+                        <strong>
+                            —
+                        </strong>
 
                     </div>
 
@@ -1112,15 +1614,19 @@
 
                 </div>
 
+
             </div>
 
+
         </section>
+
 
 
         <!-- CROP INFORMATION -->
 
         <section id="cropSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -1134,11 +1640,15 @@
 
             </div>
 
+
             <div class="crop-grid">
+
 
                 <div class="card crop-card">
 
-                    <div class="crop-icon">🧅</div>
+                    <div class="crop-icon">
+                        🧅
+                    </div>
 
                     <h2 data-i18n="onion">
                         Onion
@@ -1169,7 +1679,9 @@
 
                 <div class="card crop-card">
 
-                    <div class="crop-icon">🌾</div>
+                    <div class="crop-icon">
+                        🌾
+                    </div>
 
                     <h2 data-i18n="wheat">
                         Wheat
@@ -1197,15 +1709,19 @@
 
                 </div>
 
+
             </div>
 
+
         </section>
+
 
 
         <!-- CROP HEALTH -->
 
         <section id="healthSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -1219,11 +1735,15 @@
 
             </div>
 
+
             <div class="card health-card">
+
 
                 <div class="health-upload">
 
-                    <div class="upload-icon">🩺</div>
+                    <div class="upload-icon">
+                        🩺
+                    </div>
 
                     <h2 data-i18n="uploadCropImage">
                         Upload Crop / Leaf Image
@@ -1233,20 +1753,24 @@
                         Select an image for crop health analysis.
                     </p>
 
+
                     <label for="cropImageInput"
                            class="file-button">
 
                         📷
+
                         <span data-i18n="chooseImage">
                             Choose Image
                         </span>
 
                     </label>
 
+
                     <input type="file"
                            id="cropImageInput"
                            accept="image/*"
                            hidden>
+
 
                     <div id="imagePreviewContainer"
                          class="image-preview hidden">
@@ -1255,6 +1779,7 @@
                              alt="Crop preview">
 
                     </div>
+
 
                     <button type="button"
                             id="analyzeCropBtn"
@@ -1266,7 +1791,9 @@
 
                     </button>
 
+
                 </div>
+
 
                 <div id="cropAnalysisResult"
                      class="analysis-result">
@@ -1282,15 +1809,19 @@
 
                 </div>
 
+
             </div>
 
+
         </section>
+
 
 
         <!-- GOVERNMENT SCHEMES -->
 
         <section id="schemesSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -1304,13 +1835,19 @@
 
             </div>
 
+
             <div class="schemes-grid">
+
 
                 <div class="card scheme-card">
 
-                    <span class="scheme-icon">🏛️</span>
+                    <span class="scheme-icon">
+                        🏛️
+                    </span>
 
-                    <h2>PM-KISAN</h2>
+                    <h2>
+                        PM-KISAN
+                    </h2>
 
                     <p data-i18n="pmKisanDescription">
                         Official PM-KISAN farmer support information.
@@ -1330,9 +1867,13 @@
 
                 <div class="card scheme-card">
 
-                    <span class="scheme-icon">💧</span>
+                    <span class="scheme-icon">
+                        💧
+                    </span>
 
-                    <h2>PMKSY</h2>
+                    <h2>
+                        PMKSY
+                    </h2>
 
                     <p data-i18n="pmksyDescription">
                         Official irrigation and water-management information.
@@ -1352,7 +1893,9 @@
 
                 <div class="card scheme-card">
 
-                    <span class="scheme-icon">🛡️</span>
+                    <span class="scheme-icon">
+                        🛡️
+                    </span>
 
                     <h2 data-i18n="cropInsurance">
                         Crop Insurance
@@ -1373,15 +1916,19 @@
 
                 </div>
 
+
             </div>
 
+
         </section>
+
 
 
         <!-- AI ASSISTANT -->
 
         <section id="aiSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -1395,17 +1942,23 @@
 
             </div>
 
+
             <div class="card ai-card">
+
 
                 <div class="ai-header">
 
-                    <div class="ai-avatar">🤖</div>
+                    <div class="ai-avatar">
+                        🤖
+                    </div>
+
 
                     <div>
 
                         <h2 data-i18n="smartAssistant">
                             Smart Farmer Assistant
                         </h2>
+
 
                         <span class="not-connected-badge">
 
@@ -1419,10 +1972,13 @@
 
                     </div>
 
+
                 </div>
+
 
                 <div id="chatMessages"
                      class="chat-messages">
+
 
                     <div class="chat-message assistant-message">
 
@@ -1444,10 +2000,13 @@
 
                     </div>
 
+
                 </div>
+
 
                 <form id="aiForm"
                       class="chat-input-area">
+
 
                     <input type="text"
                            id="aiInput"
@@ -1455,27 +2014,38 @@
                            placeholder="Ask a farming question..."
                            autocomplete="off">
 
+
                     <button type="submit"
                             class="primary-button chat-send-button">
+
                         ➤
+
                     </button>
+
 
                 </form>
 
+
                 <p class="connection-note"
                    data-i18n="aiConnectionNote">
+
                     AI responses require a connected AI service/backend.
+
                 </p>
+
 
             </div>
 
+
         </section>
+
 
 
         <!-- VOICE -->
 
         <section id="voiceSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -1489,39 +2059,50 @@
 
             </div>
 
+
             <div class="card voice-card">
 
-                <div class="voice-icon">🎙️</div>
+
+                <div class="voice-icon">
+                    🎙️
+                </div>
+
 
                 <h2 data-i18n="voiceAssistantTitle">
                     Smart Voice Assistance
                 </h2>
 
+
                 <p data-i18n="voiceDescription">
                     Speak using your device microphone.
                 </p>
+
 
                 <button type="button"
                         id="startVoiceBtn"
                         class="primary-button voice-button">
 
                     🎙️
+
                     <span data-i18n="startVoice">
                         Start Voice Assistance
                     </span>
 
                 </button>
 
+
                 <button type="button"
                         id="stopVoiceBtn"
                         class="secondary-button voice-button hidden">
 
                     ⏹️
+
                     <span data-i18n="stopVoice">
                         Stop Listening
                     </span>
 
                 </button>
+
 
                 <div class="voice-input-box">
 
@@ -1536,6 +2117,7 @@
 
                 </div>
 
+
                 <div class="voice-response-box">
 
                     <label data-i18n="voiceResponse">
@@ -1544,20 +2126,26 @@
 
                     <p id="voiceResponse"
                        data-i18n="voiceReady">
+
                         Voice assistance is ready.
+
                     </p>
 
                 </div>
 
+
             </div>
 
+
         </section>
+
 
 
         <!-- PROFILE -->
 
         <section id="profileSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -1571,13 +2159,17 @@
 
             </div>
 
+
             <div class="card">
 
+
                 <div class="profile-page-header">
+
 
                     <div class="large-profile-avatar">
                         👨‍🌾
                     </div>
+
 
                     <div>
 
@@ -1585,26 +2177,34 @@
                             Farmer
                         </h2>
 
-                        <p id="profilePageEmail">—</p>
+                        <p id="profilePageEmail">
+                            —
+                        </p>
 
                     </div>
+
 
                     <button type="button"
                             id="editProfileBtn"
                             class="outline-button">
 
                         ✏️
+
                         <span data-i18n="editProfile">
                             Edit Profile
                         </span>
 
                     </button>
 
+
                 </div>
+
 
                 <form id="profileForm">
 
+
                     <div class="profile-details-grid">
+
 
                         <div class="form-group">
 
@@ -1618,6 +2218,7 @@
 
                         </div>
 
+
                         <div class="form-group">
 
                             <label data-i18n="email">
@@ -1629,6 +2230,7 @@
                                    disabled>
 
                         </div>
+
 
                         <div class="form-group">
 
@@ -1642,6 +2244,7 @@
 
                         </div>
 
+
                         <div class="form-group">
 
                             <label data-i18n="village">
@@ -1653,6 +2256,7 @@
                                    disabled>
 
                         </div>
+
 
                         <div class="form-group">
 
@@ -1666,6 +2270,7 @@
 
                         </div>
 
+
                         <div class="form-group">
 
                             <label data-i18n="landArea">
@@ -1678,38 +2283,52 @@
 
                         </div>
 
+
                         <div class="form-group">
 
                             <label data-i18n="preferredMarket">
                                 Preferred Market
                             </label>
 
+
                             <select id="profileMarket"
                                     disabled>
 
                                 <option value=""
                                         data-i18n="selectMarket">
+
                                     Select Market
+
                                 </option>
+
 
                                 <option value="Kopargaon APMC"
                                         data-i18n="kopargaonMarket">
+
                                     Kopargaon APMC
+
                                 </option>
+
 
                                 <option value="Yeola Market"
                                         data-i18n="yeolaMarket">
+
                                     Yeola Market
+
                                 </option>
+
 
                                 <option value="Shirdi Market"
                                         data-i18n="shirdiMarket">
+
                                     Shirdi Market
+
                                 </option>
 
                             </select>
 
                         </div>
+
 
                         <div class="form-group">
 
@@ -1717,31 +2336,45 @@
                                 Preferred Language
                             </label>
 
+
                             <select id="profileLanguage"
                                     disabled>
 
-                                <option value="en">English</option>
-                                <option value="hi">हिन्दी</option>
-                                <option value="mr">मराठी</option>
+                                <option value="en">
+                                    English
+                                </option>
+
+                                <option value="hi">
+                                    हिन्दी
+                                </option>
+
+                                <option value="mr">
+                                    मराठी
+                                </option>
 
                             </select>
 
                         </div>
 
+
                     </div>
+
 
                     <div id="profileEditActions"
                          class="profile-edit-actions hidden">
+
 
                         <button type="submit"
                                 class="primary-button">
 
                             💾
+
                             <span data-i18n="saveChanges">
                                 Save Changes
                             </span>
 
                         </button>
+
 
                         <button type="button"
                                 id="cancelProfileEditBtn"
@@ -1753,22 +2386,30 @@
 
                         </button>
 
+
                     </div>
+
 
                 </form>
 
+
                 <div id="profileMessage"
-                     class="message"></div>
+                     class="message">
+                </div>
+
 
             </div>
 
+
         </section>
+
 
 
         <!-- SETTINGS -->
 
         <section id="settingsSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -1782,7 +2423,9 @@
 
             </div>
 
+
             <div class="card settings-card">
+
 
                 <div class="setting-row">
 
@@ -1798,11 +2441,20 @@
 
                     </div>
 
+
                     <select id="settingsLanguage">
 
-                        <option value="en">English</option>
-                        <option value="hi">हिन्दी</option>
-                        <option value="mr">मराठी</option>
+                        <option value="en">
+                            English
+                        </option>
+
+                        <option value="hi">
+                            हिन्दी
+                        </option>
+
+                        <option value="mr">
+                            मराठी
+                        </option>
 
                     </select>
 
@@ -1822,6 +2474,7 @@
                         </p>
 
                     </div>
+
 
                     <label class="switch">
 
@@ -1850,6 +2503,7 @@
 
                     </div>
 
+
                     <label class="switch">
 
                         <input type="checkbox"
@@ -1861,15 +2515,19 @@
 
                 </div>
 
+
             </div>
 
+
         </section>
+
 
 
         <!-- ABOUT -->
 
         <section id="aboutSection"
                  class="app-section">
+
 
             <div class="page-title">
 
@@ -1879,54 +2537,77 @@
 
             </div>
 
+
             <div class="card about-card">
+
 
                 <img src="logo.png"
                      alt="SmartAgri Logo"
                      class="about-logo">
 
-                <h2>SmartAgri</h2>
+
+                <h2>
+                    SmartAgri
+                </h2>
+
 
                 <p class="about-tagline"
                    data-i18n="appTagline">
+
                     Smart Agriculture Market Intelligence System
+
                 </p>
+
 
                 <div class="about-grid">
 
+
                     <div>
+
                         <span>📈</span>
 
                         <strong data-i18n="marketIntelligence">
                             Market Intelligence
                         </strong>
+
                     </div>
 
+
                     <div>
+
                         <span>🌾</span>
 
                         <strong data-i18n="cropInformation">
                             Crop Information
                         </strong>
+
                     </div>
 
+
                     <div>
+
                         <span>🤖</span>
 
                         <strong data-i18n="aiAssistant">
                             AI Assistance
                         </strong>
+
                     </div>
 
+
                     <div>
+
                         <span>🌐</span>
 
                         <strong data-i18n="multilingualSupport">
                             Multilingual Support
                         </strong>
+
                     </div>
 
+
                 </div>
+
 
                 <p class="about-description"
                    data-i18n="aboutDescription">
@@ -1937,19 +2618,29 @@
 
                 </p>
 
+
             </div>
+
 
         </section>
 
+
     </main>
 
+
+
+    <!-- =====================================================
+         FOOTER
+    ====================================================== -->
 
     <footer>
 
         <img src="logo.png"
              alt="SmartAgri">
 
-        <h3>SmartAgri</h3>
+        <h3>
+            SmartAgri
+        </h3>
 
         <p data-i18n="appTagline">
             Smart Agriculture Market Intelligence System
@@ -1957,10 +2648,17 @@
 
     </footer>
 
+
 </section>
 
+
+
+<!-- =========================================================
+     JAVASCRIPT
+========================================================= -->
 
 <script src="script.js"></script>
 
 </body>
+
 </html>
