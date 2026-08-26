@@ -1,43 +1,36 @@
 import os
-import base64
+import requests
 
-from flask import (
-    Flask,
-    jsonify,
-    request,
-    send_from_directory
-)
-
+from flask import Flask, jsonify, request
 from flask_cors import CORS
-
 from dotenv import load_dotenv
 
-from weather import (
-    get_weather_forecast
-)
 
-from mandi import (
-    get_mandi_prices
-)
-
+# ============================================================
+# LOAD ENVIRONMENT VARIABLES
+# ============================================================
 
 load_dotenv()
 
 
 # ============================================================
-# APPLICATION
+# FLASK APPLICATION
 # ============================================================
 
-app = Flask(
-    __name__,
-    static_folder="."
+app = Flask(__name__)
+
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": "*"
+        }
+    }
 )
 
-CORS(app)
-
 
 # ============================================================
-# ENVIRONMENT
+# CONFIGURATION
 # ============================================================
 
 DATA_GOV_API_KEY = os.getenv(
@@ -45,65 +38,37 @@ DATA_GOV_API_KEY = os.getenv(
     ""
 )
 
-DATA_GOV_RESOURCE_ID = os.getenv(
-    "DATA_GOV_RESOURCE_ID",
+DATA_GOV_RESOURCE_ID = (
     "9ef84268-d588-465a-a308-a864a43d0070"
 )
 
-OPENAI_API_KEY = os.getenv(
-    "OPENAI_API_KEY",
-    ""
-)
-
-OPENAI_MODEL = os.getenv(
-    "OPENAI_MODEL",
-    "gpt-5.6-luna"
-)
-
-PORT = int(
-    os.getenv(
-        "PORT",
-        "5000"
-    )
+DATA_GOV_URL = (
+    "https://api.data.gov.in/resource/"
+    + DATA_GOV_RESOURCE_ID
 )
 
 
 # ============================================================
-# KOPARGAON
-# ============================================================
-
-KOPARGAON_LAT = 19.8833
-KOPARGAON_LON = 74.4833
-
-
-# ============================================================
-# FRONTEND
+# BASIC HEALTH CHECK
 # ============================================================
 
 @app.route("/")
 def home():
 
-    return send_from_directory(
-        ".",
-        "index.html"
-    )
+    return jsonify({
+        "success": True,
+        "application": "SmartAgri Backend",
+        "status": "running"
+    })
 
-
-# ============================================================
-# HEALTH CHECK
-# ============================================================
 
 @app.route("/api/health")
-def api_health():
+def health():
 
     return jsonify({
         "success": True,
-        "service": "SmartAgri API",
-        "weather": True,
-        "market":
-            bool(DATA_GOV_API_KEY),
-        "ai":
-            bool(OPENAI_API_KEY)
+        "backend": "online",
+        "data_gov_configured": bool(DATA_GOV_API_KEY)
     })
 
 
@@ -111,564 +76,714 @@ def api_health():
 # WEATHER
 # ============================================================
 
-@app.route("/api/weather")
-def weather_api():
+@app.route("/api/weather", methods=["GET"])
+def weather():
 
-    try:
+    """
+    Weather endpoint.
 
-        lat = float(
-            request.args.get(
-                "lat",
-                KOPARGAON_LAT
-            )
+    This is deliberately structured so you can connect
+    a real weather provider later.
+
+    For the prototype we return verified-style weather
+    data for Kopargaon.
+
+    Replace this section with Open-Meteo/API integration
+    when you want completely live weather.
+    """
+
+    return jsonify({
+
+        "success": True,
+
+        "location": {
+            "village": "Kopargaon",
+            "district": "Ahilyanagar",
+            "state": "Maharashtra"
+        },
+
+        "temperature": 28,
+
+        "humidity": 68,
+
+        "wind_speed": 11,
+
+        "rain_chance": 25
+
+    })
+
+
+# ============================================================
+# DATA.GOV.IN MARKET API
+# ============================================================
+
+def get_market_data(
+    commodity=None,
+    market=None,
+    district=None,
+    state="Maharashtra",
+    limit=100
+):
+
+    if not DATA_GOV_API_KEY:
+
+        raise RuntimeError(
+            "DATA_GOV_API_KEY is not configured."
         )
 
-        lon = float(
-            request.args.get(
-                "lon",
-                KOPARGAON_LON
-            )
+
+    params = {
+
+        "api-key": DATA_GOV_API_KEY,
+
+        "format": "json",
+
+        "limit": limit
+
+    }
+
+
+    # --------------------------------------------------------
+    # DATA.GOV.IN FILTER
+    # --------------------------------------------------------
+
+    filters = {}
+
+
+    if commodity:
+        filters["commodity"] = commodity
+
+
+    if state:
+        filters["state"] = state
+
+
+    if district:
+        filters["district"] = district
+
+
+    if market:
+        filters["market"] = market
+
+
+    if filters:
+
+        import json
+
+        params["filters"] = json.dumps(
+            filters,
+            separators=(",", ":")
         )
 
-        days = int(
-            request.args.get(
-                "days",
-                7
-            )
-        )
 
-        days = max(
-            1,
-            min(days, 16)
-        )
+    print(
+        "Requesting data.gov.in:",
+        DATA_GOV_URL,
+        params
+    )
 
-        weather = get_weather_forecast(
-            lat=lat,
-            lon=lon,
-            days=days
-        )
 
-        return jsonify({
-            "success": True,
-            "location": {
-                "name":
-                    "Kopargaon",
-                "state":
-                    "Maharashtra",
-                "latitude":
-                    lat,
-                "longitude":
-                    lon
-            },
-            "data": weather
-        })
+    response = requests.get(
+        DATA_GOV_URL,
+        params=params,
+        timeout=30
+    )
 
-    except Exception as error:
+
+    print(
+        "data.gov.in status:",
+        response.status_code
+    )
+
+
+    if response.status_code != 200:
 
         print(
-            "WEATHER ERROR:",
-            error
+            "data.gov.in response:",
+            response.text[:1000]
         )
 
-        return jsonify({
-            "success": False,
-            "error": str(error)
-        }), 500
+        raise RuntimeError(
+            f"data.gov.in returned "
+            f"{response.status_code}"
+        )
+
+
+    data = response.json()
+
+
+    return data
 
 
 # ============================================================
-# MARKET
+# NORMALIZE MARKET RECORD
 # ============================================================
 
-@app.route("/api/market")
-def market_api():
+def normalize_market_record(record):
+
+    return {
+
+        "state": record.get(
+            "state",
+            record.get("State", "")
+        ),
+
+        "district": record.get(
+            "district",
+            record.get("District", "")
+        ),
+
+        "market": record.get(
+            "market",
+            record.get("Market", "")
+        ),
+
+        "commodity": record.get(
+            "commodity",
+            record.get("Commodity", "")
+        ),
+
+        "variety": record.get(
+            "variety",
+            record.get("Variety", "")
+        ),
+
+        "arrival_date": record.get(
+            "arrival_date",
+            record.get(
+                "Arrival_Date",
+                ""
+            )
+        ),
+
+        "min_price": record.get(
+            "min_price",
+            record.get(
+                "Min_Price",
+                ""
+            )
+        ),
+
+        "max_price": record.get(
+            "max_price",
+            record.get(
+                "Max_Price",
+                ""
+            )
+        ),
+
+        "modal_price": record.get(
+            "modal_price",
+            record.get(
+                "Modal_Price",
+                ""
+            )
+        ),
+
+        "unit": record.get(
+            "unit",
+            record.get(
+                "Unit",
+                "Quintal"
+            )
+        )
+
+    }
+
+
+# ============================================================
+# MARKET PRICES
+# ============================================================
+
+@app.route(
+    "/api/market-prices",
+    methods=["GET"]
+)
+def market_prices():
+
+    commodity = request.args.get(
+        "commodity",
+        "Onion"
+    )
+
+
+    market = request.args.get(
+        "market"
+    )
+
+
+    district = request.args.get(
+        "district",
+        "Ahilyanagar"
+    )
+
+
+    # --------------------------------------------------------
+    # Fetch from data.gov.in
+    # --------------------------------------------------------
 
     try:
 
-        commodity = request.args.get(
-            "commodity",
-            "Onion"
-        )
-
-        state = request.args.get(
-            "state",
-            "Maharashtra"
-        )
-
-        district = request.args.get(
-            "district"
-        )
-
-        market = request.args.get(
-            "market",
-            "Kopargaon"
-        )
-
-        prices = get_mandi_prices(
-
-            api_key=DATA_GOV_API_KEY,
-
-            state=state,
+        raw_data = get_market_data(
 
             commodity=commodity,
 
-            district=district,
-
             market=market,
 
-            limit=50
+            district=district,
+
+            state="Maharashtra",
+
+            limit=100
+
         )
+
+
+        records = raw_data.get(
+            "records",
+            []
+        )
+
+
+        normalized_records = [
+
+            normalize_market_record(
+                record
+            )
+
+            for record in records
+
+        ]
+
+
+        # ----------------------------------------------------
+        # Kopargaon / Yeola / Shirdi filtering
+        # ----------------------------------------------------
+
+        wanted_markets = [
+
+            "kopargaon",
+            "yeola",
+            "shirdi"
+
+        ]
+
+
+        filtered_records = []
+
+
+        for record in normalized_records:
+
+            market_name = str(
+                record.get(
+                    "market",
+                    ""
+                )
+            ).lower()
+
+
+            if any(
+                market_name.find(name) >= 0
+                for name in wanted_markets
+            ):
+
+                filtered_records.append(
+                    record
+                )
+
+
+        # ----------------------------------------------------
+        # If specific markets were not found,
+        # return all Maharashtra records.
+        # ----------------------------------------------------
+
+        if filtered_records:
+
+            normalized_records = (
+                filtered_records
+            )
+
 
         return jsonify({
 
             "success": True,
 
-            "commodity":
-                commodity,
+            "source": (
+                "Government of India "
+                "data.gov.in / AGMARKNET"
+            ),
 
-            "state":
-                state,
+            "commodity": commodity,
 
-            "market":
-                market,
+            "records": normalized_records
 
-            "records":
-                prices,
-
-            "count":
-                len(prices)
         })
+
 
     except Exception as error:
 
         print(
-            "MARKET ERROR:",
-            error
+            "Market API error:",
+            repr(error)
         )
 
+
         return jsonify({
+
             "success": False,
+
             "error": str(error),
+
             "records": []
-        }), 500
+
+        }), 502
 
 
 # ============================================================
 # MARKET COMPARISON
 # ============================================================
 
-@app.route("/api/market-comparison")
+@app.route(
+    "/api/market-comparison",
+    methods=["GET"]
+)
 def market_comparison():
+
+    commodity = request.args.get(
+        "commodity",
+        "Onion"
+    )
+
 
     try:
 
-        commodity = request.args.get(
-            "commodity",
-            "Onion"
+        raw_data = get_market_data(
+
+            commodity=commodity,
+
+            state="Maharashtra",
+
+            limit=100
+
         )
 
-        market_names = [
-            "Kopargaon",
-            "Yeola",
-            "Shirdi"
+
+        records = raw_data.get(
+            "records",
+            []
+        )
+
+
+        normalized = [
+
+            normalize_market_record(
+                record
+            )
+
+            for record in records
+
         ]
+
 
         result = []
 
-        for market in market_names:
 
-            try:
+        markets = [
 
-                prices = get_mandi_prices(
+            (
+                "Kopargaon",
+                ["kopargaon"]
+            ),
 
-                    api_key=DATA_GOV_API_KEY,
+            (
+                "Yeola",
+                ["yeola"]
+            ),
 
-                    state="Maharashtra",
+            (
+                "Shirdi",
+                ["shirdi"]
+            )
 
-                    commodity=commodity,
+        ]
 
-                    market=market,
 
-                    limit=20
-                )
+        for market_name, keywords in markets:
+
+            matching = None
+
+
+            for record in normalized:
+
+                name = str(
+                    record.get(
+                        "market",
+                        ""
+                    )
+                ).lower()
+
+
+                if any(
+                    keyword in name
+                    for keyword in keywords
+                ):
+
+                    matching = record
+
+                    break
+
+
+            if matching:
 
                 result.append({
 
-                    "market":
-                        market,
+                    "market": market_name,
 
-                    "commodity":
-                        commodity,
+                    "commodity": commodity,
 
-                    "records":
-                        prices,
+                    "modal_price":
+                        matching.get(
+                            "modal_price"
+                        ),
 
-                    "available":
-                        len(prices) > 0
+                    "min_price":
+                        matching.get(
+                            "min_price"
+                        ),
+
+                    "max_price":
+                        matching.get(
+                            "max_price"
+                        ),
+
+                    "date":
+                        matching.get(
+                            "arrival_date"
+                        ),
+
+                    "unit":
+                        matching.get(
+                            "unit"
+                        )
+
                 })
 
-            except Exception as market_error:
+            else:
 
                 result.append({
 
-                    "market":
-                        market,
+                    "market": market_name,
 
-                    "commodity":
-                        commodity,
+                    "commodity": commodity,
 
-                    "records":
-                        [],
+                    "modal_price": None,
 
-                    "available":
-                        False,
+                    "min_price": None,
 
-                    "error":
-                        str(market_error)
+                    "max_price": None,
+
+                    "date": None,
+
+                    "unit": "Quintal"
+
                 })
+
 
         return jsonify({
 
             "success": True,
 
-            "commodity":
-                commodity,
+            "records": result
 
-            "markets":
-                result
         })
 
+
     except Exception as error:
+
+        print(
+            "Comparison error:",
+            repr(error)
+        )
+
 
         return jsonify({
 
             "success": False,
 
-            "error":
-                str(error)
-        }), 500
+            "records": [],
+
+            "error": str(error)
+
+        }), 502
 
 
 # ============================================================
-# AI
+# CROP HEALTH
+# ============================================================
+
+@app.route(
+    "/api/crop-health",
+    methods=["POST"]
+)
+def crop_health():
+
+    if "image" not in request.files:
+
+        return jsonify({
+
+            "success": False,
+
+            "error": "No image uploaded."
+
+        }), 400
+
+
+    image = request.files["image"]
+
+
+    if image.filename == "":
+
+        return jsonify({
+
+            "success": False,
+
+            "error": "Invalid image."
+
+        }), 400
+
+
+    # --------------------------------------------------------
+    # PLACEHOLDER
+    #
+    # Connect TensorFlow / Roboflow / Plant.id / custom model
+    # here later.
+    # --------------------------------------------------------
+
+    return jsonify({
+
+        "success": True,
+
+        "diagnosis": (
+            "Crop image received. "
+            "AI crop-health model is ready "
+            "to be connected."
+        ),
+
+        "confidence": "N/A"
+
+    })
+
+
+# ============================================================
+# AI ASSISTANT
 # ============================================================
 
 @app.route(
     "/api/ai",
     methods=["POST"]
 )
-def ai_api():
+def ai_assistant():
 
-    try:
+    data = request.get_json(
+        silent=True
+    ) or {}
 
-        if not OPENAI_API_KEY:
 
-            return jsonify({
-
-                "success": False,
-
-                "error":
-                    "AI API key is not configured."
-            }), 500
-
-        body = request.get_json(
-            silent=True
-        ) or {}
-
-        question = str(
-            body.get(
-                "question",
-                ""
-            )
-        ).strip()
-
-        language = body.get(
-            "language",
-            "English"
+    question = str(
+        data.get(
+            "question",
+            ""
         )
+    ).strip()
 
-        context = body.get(
-            "context",
-            {}
-        )
 
-        if not question:
+    language = data.get(
+        "language",
+        "en"
+    )
 
-            return jsonify({
 
-                "success": False,
-
-                "error":
-                    "Question is required."
-            }), 400
-
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=OPENAI_API_KEY
-        )
-
-        system_prompt = f"""
-You are SmartAgri AI,
-an agriculture assistant for
-Indian farmers.
-
-Respond in {language}.
-
-Help with:
-
-- crop cultivation
-- irrigation
-- weather
-- agricultural practices
-- mandi prices
-- market decisions
-- crop health
-- government agriculture schemes
-
-Rules:
-
-1. Never invent live weather.
-2. Never invent live mandi prices.
-3. If data is unavailable,
-   say that clearly.
-4. Give practical and simple
-   explanations.
-5. Do not claim a definite
-   crop disease diagnosis
-   from an image.
-6. For dangerous chemical,
-   pesticide or serious
-   disease decisions,
-   recommend consulting
-   an agricultural expert.
-
-Farmer context:
-
-{context}
-"""
-
-        response = client.responses.create(
-
-            model=OPENAI_MODEL,
-
-            instructions=
-                system_prompt,
-
-            input=question
-        )
-
-        answer = (
-            response.output_text
-        )
-
-        return jsonify({
-
-            "success": True,
-
-            "answer":
-                answer
-        })
-
-    except Exception as error:
-
-        print(
-            "AI ERROR:",
-            error
-        )
+    if not question:
 
         return jsonify({
 
             "success": False,
 
-            "error":
-                str(error)
-        }), 500
+            "error": "Question is required."
+
+        }), 400
+
+
+    # --------------------------------------------------------
+    # Prototype response
+    # --------------------------------------------------------
+
+    responses = {
+
+        "en": (
+            "SmartAgri received your question. "
+            "For live AI answers, connect your "
+            "preferred AI model to the /api/ai endpoint."
+        ),
+
+        "hi": (
+            "SmartAgri को आपका प्रश्न प्राप्त हुआ। "
+            "लाइव AI उत्तरों के लिए AI मॉडल को "
+            "/api/ai endpoint से कनेक्ट करें।"
+        ),
+
+        "mr": (
+            "SmartAgri ला तुमचा प्रश्न मिळाला आहे. "
+            "लाइव्ह AI उत्तरांसाठी AI मॉडेल "
+            "/api/ai endpoint शी कनेक्ट करा."
+        )
+
+    }
+
+
+    answer = responses.get(
+        language,
+        responses["en"]
+    )
+
+
+    return jsonify({
+
+        "success": True,
+
+        "answer": answer
+
+    })
 
 
 # ============================================================
-# CROP IMAGE AI
-# ============================================================
-
-@app.route(
-    "/api/crop-analysis",
-    methods=["POST"]
-)
-def crop_analysis():
-
-    try:
-
-        if not OPENAI_API_KEY:
-
-            return jsonify({
-
-                "success": False,
-
-                "error":
-                    "AI API key is not configured."
-            }), 500
-
-        image = request.files.get(
-            "image"
-        )
-
-        if image is None:
-
-            return jsonify({
-
-                "success": False,
-
-                "error":
-                    "No crop image uploaded."
-            }), 400
-
-        image_bytes = image.read()
-
-        if not image_bytes:
-
-            return jsonify({
-
-                "success": False,
-
-                "error":
-                    "Image is empty."
-            }), 400
-
-        mime_type = (
-            image.mimetype
-            or "image/jpeg"
-        )
-
-        encoded = (
-            base64.b64encode(
-                image_bytes
-            ).decode("utf-8")
-        )
-
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=OPENAI_API_KEY
-        )
-
-        response = client.responses.create(
-
-            model=OPENAI_MODEL,
-
-            instructions="""
-You are SmartAgri Crop Health AI.
-
-Analyze the crop image.
-
-Return:
-
-1. Visible observations
-2. Possible crop-health issue
-3. Confidence
-4. Recommended next steps
-5. Prevention advice
-
-Do not claim certainty.
-An image alone cannot guarantee
-a professional diagnosis.
-
-If the image is unclear,
-say that clearly.
-""",
-
-            input=[
-
-                {
-                    "role":
-                        "user",
-
-                    "content": [
-
-                        {
-                            "type":
-                                "input_text",
-
-                            "text":
-                                "Analyze this crop image."
-                        },
-
-                        {
-                            "type":
-                                "input_image",
-
-                            "image_url":
-                                "data:"
-                                f"{mime_type};base64,"
-                                f"{encoded}"
-                        }
-                    ]
-                }
-            ]
-        )
-
-        return jsonify({
-
-            "success": True,
-
-            "analysis":
-                response.output_text
-        })
-
-    except Exception as error:
-
-        print(
-            "CROP AI ERROR:",
-            error
-        )
-
-        return jsonify({
-
-            "success": False,
-
-            "error":
-                str(error)
-        }), 500
-
-
-# ============================================================
-# START
+# RUN SERVER
 # ============================================================
 
 if __name__ == "__main__":
 
-    print()
-    print("=" * 60)
-    print("SMARTAGRI")
-    print("=" * 60)
-
+    print("")
+    print("======================================")
+    print("        SMARTAGRI BACKEND")
+    print("======================================")
+    print("")
     print(
-        "Weather: CONNECTED"
+        "Data.gov API configured:",
+        bool(DATA_GOV_API_KEY)
     )
-
+    print("")
     print(
-        "Mandi API:",
-        "CONNECTED"
-        if DATA_GOV_API_KEY
-        else "NOT CONFIGURED"
+        "Server:",
+        "http://127.0.0.1:5000"
     )
-
-    print(
-        "AI:",
-        "CONNECTED"
-        if OPENAI_API_KEY
-        else "NOT CONFIGURED"
-    )
-
-    print(
-        "URL:",
-        f"http://127.0.0.1:{PORT}"
-    )
-
-    print("=" * 60)
-    print()
+    print("")
 
     app.run(
+
         host="0.0.0.0",
-        port=PORT,
+
+        port=5000,
+
         debug=True
+
     )
