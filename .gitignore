@@ -1,30 +1,10 @@
-# Environment variables
 .env
-
-# Python virtual environment
 .venv/
-venv/
-
-# Python cache
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-
-# Node.js dependencies
-node_modules/
-
-# IDE/editor files
 .vscode/
 .idea/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
+node_modules/
 # SQLite database files
 *.db
 *.sqlite
