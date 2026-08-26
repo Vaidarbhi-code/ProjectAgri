@@ -1,25 +1,16 @@
 # ============================================================
 # SMARTAGRI
-# Complete Flask Backend
+# COMPLETE FLASK BACKEND
 #
-# FEATURES
-# ------------------------------------------------------------
-# - OpenAI AI Farmer Assistant
-# - Open-Meteo live weather
-# - Open-Meteo 7-day forecast
-# - data.gov.in / AGMARKNET mandi prices
-# - Kopargaon market support
-# - Plant.id crop health
-# - SQLite database
-# - Automatic database/table creation
-# - Weather history
-# - Market history
-# - AI conversation history
-# - Crop health history
-# - CORS enabled for frontend
+# Services:
+#   AI          -> OpenAI
+#   Weather     -> Open-Meteo
+#   Mandi       -> data.gov.in / AGMARKNET
+#   Crop Health -> Plant.id
+#   Database    -> SQLite
 #
-# EXISTING FRONTEND ENDPOINTS
-# ------------------------------------------------------------
+# Existing frontend endpoints:
+#
 # GET  /
 # GET  /health
 # GET  /api/status
@@ -27,33 +18,37 @@
 # GET  /api/weather
 # GET  /api/weather/history
 #
-# GET  /api/market-prices
 # GET  /api/market
+# GET  /api/market-prices
 # GET  /api/market/history
 #
 # POST /api/ai
+#
 # POST /api/crop-health
+#
+# Database endpoints:
+#
+# GET  /api/database
+# GET  /api/database/<table>
 #
 # ============================================================
 
+
 import os
+import re
 import json
 import sqlite3
 import logging
-import base64
 from datetime import datetime, timezone
-from typing import Optional
 
 import requests
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-from openai import OpenAI
-
 
 # ============================================================
-# LOAD ENVIRONMENT
+# LOAD ENVIRONMENT VARIABLES
 # ============================================================
 
 load_dotenv()
@@ -108,7 +103,7 @@ DATABASE = os.getenv(
 
 
 # ============================================================
-# OPENAI
+# OPENAI CONFIGURATION
 # ============================================================
 
 OPENAI_API_KEY = os.getenv(
@@ -121,36 +116,13 @@ OPENAI_MODEL = os.getenv(
     "gpt-4o-mini"
 ).strip()
 
-openai_client = None
-
-if OPENAI_API_KEY:
-
-    try:
-
-        openai_client = OpenAI(
-            api_key=OPENAI_API_KEY
-        )
-
-        logger.info(
-            "OpenAI configured successfully."
-        )
-
-    except Exception as exc:
-
-        logger.exception(
-            "OpenAI client initialization failed: %s",
-            exc
-        )
-
-else:
-
-    logger.warning(
-        "OPENAI_API_KEY is not configured."
-    )
+OPENAI_URL = (
+    "https://api.openai.com/v1/chat/completions"
+)
 
 
 # ============================================================
-# WEATHER
+# OPEN-METEO CONFIGURATION
 # ============================================================
 
 OPEN_METEO_URL = (
@@ -171,19 +143,21 @@ KOPARGAON_LON = float(
     )
 )
 
-DEFAULT_LOCATION = os.getenv(
+WEATHER_LOCATION = os.getenv(
     "WEATHER_LOCATION",
     "Kopargaon"
 )
 
-WEATHER_TIMEZONE = os.getenv(
-    "WEATHER_TIMEZONE",
-    "Asia/Kolkata"
+WEATHER_DAYS = int(
+    os.getenv(
+        "WEATHER_DAYS",
+        "7"
+    )
 )
 
 
 # ============================================================
-# DATA.GOV.IN
+# DATA.GOV.IN CONFIGURATION
 # ============================================================
 
 DATA_GOV_API_KEY = os.getenv(
@@ -196,14 +170,14 @@ DATA_GOV_RESOURCE_ID = os.getenv(
     "9ef84268-d588-465a-a308-a864a43d0070"
 ).strip()
 
-DATA_GOV_API_URL = (
+DATA_GOV_URL = (
     "https://api.data.gov.in/resource/"
     + DATA_GOV_RESOURCE_ID
 )
 
 
 # ============================================================
-# PLANT.ID
+# PLANT.ID CONFIGURATION
 # ============================================================
 
 PLANT_ID_API_KEY = os.getenv(
@@ -217,27 +191,13 @@ PLANT_ID_URL = (
 
 
 # ============================================================
-# REQUEST SETTINGS
+# REQUEST CONFIGURATION
 # ============================================================
 
 REQUEST_TIMEOUT = int(
     os.getenv(
         "REQUEST_TIMEOUT",
         "20"
-    )
-)
-
-OPENAI_TIMEOUT = int(
-    os.getenv(
-        "OPENAI_TIMEOUT",
-        "60"
-    )
-)
-
-PLANT_ID_TIMEOUT = int(
-    os.getenv(
-        "PLANT_ID_TIMEOUT",
-        "30"
     )
 )
 
@@ -265,28 +225,27 @@ def initialize_database():
     cursor = connection.cursor()
 
     # ========================================================
-    # TABLE 1: WEATHER HISTORY
+    # WEATHER TABLE
     # ========================================================
 
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS weather_history (
-
+        CREATE TABLE IF NOT EXISTS weather (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-            location TEXT NOT NULL,
+            location TEXT,
 
             latitude REAL,
 
             longitude REAL,
 
-            temperature_c REAL,
+            temperature REAL,
 
-            humidity_pct REAL,
+            humidity REAL,
 
-            wind_speed_kmh REAL,
+            wind_speed REAL,
 
-            precipitation_mm REAL,
+            precipitation REAL,
 
             weather_code INTEGER,
 
@@ -294,7 +253,7 @@ def initialize_database():
 
             forecast_json TEXT,
 
-            recorded_at TEXT NOT NULL,
+            recorded_at TEXT,
 
             created_at TEXT NOT NULL
         )
@@ -302,13 +261,12 @@ def initialize_database():
     )
 
     # ========================================================
-    # TABLE 2: MARKET PRICES
+    # MANDI PRICES TABLE
     # ========================================================
 
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS market_prices (
-
+        CREATE TABLE IF NOT EXISTS mandi_prices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
             state TEXT,
@@ -331,21 +289,18 @@ def initialize_database():
 
             source TEXT,
 
-            raw_json TEXT,
-
             created_at TEXT NOT NULL
         )
         """
     )
 
     # ========================================================
-    # TABLE 3: AI CONVERSATIONS
+    # AI HISTORY TABLE
     # ========================================================
 
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS ai_conversations (
-
+        CREATE TABLE IF NOT EXISTS ai_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
             question TEXT NOT NULL,
@@ -364,30 +319,23 @@ def initialize_database():
     )
 
     # ========================================================
-    # TABLE 4: CROP HEALTH
+    # PLANT HEALTH TABLE
     # ========================================================
 
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS crop_health_results (
-
+        CREATE TABLE IF NOT EXISTS plant_health (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
 
             filename TEXT,
 
             plant_name TEXT,
 
-            scientific_name TEXT,
-
-            health_status TEXT,
-
-            health_probability REAL,
-
             disease_name TEXT,
 
-            disease_probability REAL,
+            probability REAL,
 
-            result_json TEXT,
+            diagnosis_json TEXT,
 
             created_at TEXT NOT NULL
         )
@@ -402,23 +350,23 @@ def initialize_database():
         """
         CREATE INDEX IF NOT EXISTS
         idx_weather_created
-        ON weather_history(created_at)
+        ON weather(created_at)
         """
     )
 
     cursor.execute(
         """
         CREATE INDEX IF NOT EXISTS
-        idx_market_commodity
-        ON market_prices(commodity)
+        idx_mandi_commodity
+        ON mandi_prices(commodity)
         """
     )
 
     cursor.execute(
         """
         CREATE INDEX IF NOT EXISTS
-        idx_market_date
-        ON market_prices(arrival_date)
+        idx_mandi_market
+        ON mandi_prices(market)
         """
     )
 
@@ -426,15 +374,15 @@ def initialize_database():
         """
         CREATE INDEX IF NOT EXISTS
         idx_ai_created
-        ON ai_conversations(created_at)
+        ON ai_history(created_at)
         """
     )
 
     cursor.execute(
         """
         CREATE INDEX IF NOT EXISTS
-        idx_crop_health_created
-        ON crop_health_results(created_at)
+        idx_plant_created
+        ON plant_health(created_at)
         """
     )
 
@@ -444,11 +392,10 @@ def initialize_database():
 
     logger.info(
         "SQLite database initialized: %s",
-        os.path.abspath(DATABASE)
+        DATABASE
     )
 
 
-# Create database automatically.
 initialize_database()
 
 
@@ -463,6 +410,14 @@ def now_iso():
     ).isoformat()
 
 
+def clean_text(value):
+
+    if value is None:
+        return ""
+
+    return str(value).strip()
+
+
 def safe_float(value):
 
     if value is None:
@@ -472,7 +427,6 @@ def safe_float(value):
         value,
         (int, float)
     ):
-
         return float(value)
 
     text = str(value).strip()
@@ -487,21 +441,23 @@ def safe_float(value):
         .strip()
     )
 
+    match = re.search(
+        r"-?\d+(?:\.\d+)?",
+        text
+    )
+
+    if not match:
+        return None
+
     try:
 
-        return float(text)
+        return float(
+            match.group(0)
+        )
 
     except ValueError:
 
         return None
-
-
-def clean_text(value):
-
-    if value is None:
-        return ""
-
-    return str(value).strip()
 
 
 def json_error(
@@ -521,21 +477,9 @@ def json_error(
             details
         )
 
-    return jsonify(payload), status
-
-
-def safe_json_string(data):
-
-    try:
-
-        return json.dumps(
-            data,
-            ensure_ascii=False
-        )
-
-    except Exception:
-
-        return "{}"
+    return jsonify(
+        payload
+    ), status
 
 
 # ============================================================
@@ -633,14 +577,13 @@ def get_weather_forecast(
             "temperature_2m_max",
             "temperature_2m_min",
             "precipitation_sum",
-            "precipitation_probability_max"
+            "precipitation_probability_max",
+            "weather_code"
         ]),
 
-        "timezone":
-            WEATHER_TIMEZONE,
+        "timezone": "Asia/Kolkata",
 
-        "forecast_days":
-            days
+        "forecast_days": days
     }
 
     response = requests.get(
@@ -670,6 +613,31 @@ def get_weather_forecast(
 
     forecast = []
 
+    max_temps = daily.get(
+        "temperature_2m_max",
+        []
+    )
+
+    min_temps = daily.get(
+        "temperature_2m_min",
+        []
+    )
+
+    rainfall = daily.get(
+        "precipitation_sum",
+        []
+    )
+
+    rain_probability = daily.get(
+        "precipitation_probability_max",
+        []
+    )
+
+    weather_codes = daily.get(
+        "weather_code",
+        []
+    )
+
     for i, date in enumerate(dates):
 
         forecast.append({
@@ -678,56 +646,36 @@ def get_weather_forecast(
                 date,
 
             "temp_max_c":
-                daily.get(
-                    "temperature_2m_max",
-                    []
-                )[i]
-                if i < len(
-                    daily.get(
-                        "temperature_2m_max",
-                        []
-                    )
-                )
+                max_temps[i]
+                if i < len(max_temps)
                 else None,
 
             "temp_min_c":
-                daily.get(
-                    "temperature_2m_min",
-                    []
-                )[i]
-                if i < len(
-                    daily.get(
-                        "temperature_2m_min",
-                        []
-                    )
-                )
+                min_temps[i]
+                if i < len(min_temps)
                 else None,
 
             "rainfall_mm":
-                daily.get(
-                    "precipitation_sum",
-                    []
-                )[i]
-                if i < len(
-                    daily.get(
-                        "precipitation_sum",
-                        []
-                    )
-                )
+                rainfall[i]
+                if i < len(rainfall)
                 else None,
 
             "rain_probability_pct":
-                daily.get(
-                    "precipitation_probability_max",
-                    []
-                )[i]
-                if i < len(
-                    daily.get(
-                        "precipitation_probability_max",
-                        []
-                    )
+                rain_probability[i]
+                if i < len(rain_probability)
+                else None,
+
+            "weather_code":
+                weather_codes[i]
+                if i < len(weather_codes)
+                else None,
+
+            "condition":
+                weather_code_description(
+                    weather_codes[i]
+                    if i < len(weather_codes)
+                    else None
                 )
-                else None
         })
 
     return {
@@ -759,16 +707,11 @@ def get_weather_forecast(
                     "weather_code"
                 ),
 
-            "weather_condition":
+            "condition":
                 weather_code_description(
                     current.get(
                         "weather_code"
                     )
-                ),
-
-            "time":
-                current.get(
-                    "time"
                 )
         },
 
@@ -777,7 +720,7 @@ def get_weather_forecast(
     }
 
 
-def save_weather_to_database(
+def save_weather(
     weather_data
 ):
 
@@ -790,40 +733,24 @@ def save_weather_to_database(
 
     connection.execute(
         """
-        INSERT INTO weather_history (
-
+        INSERT INTO weather (
             location,
-
             latitude,
-
             longitude,
-
-            temperature_c,
-
-            humidity_pct,
-
-            wind_speed_kmh,
-
-            precipitation_mm,
-
+            temperature,
+            humidity,
+            wind_speed,
+            precipitation,
             weather_code,
-
             weather_condition,
-
             forecast_json,
-
             recorded_at,
-
             created_at
-
         )
-
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-
         (
-
-            DEFAULT_LOCATION,
+            WEATHER_LOCATION,
 
             KOPARGAON_LAT,
 
@@ -858,20 +785,18 @@ def save_weather_to_database(
             ),
 
             current.get(
-                "weather_condition"
+                "condition"
             ),
 
-            safe_json_string(
+            json.dumps(
                 weather_data.get(
                     "forecast",
                     []
-                )
+                ),
+                ensure_ascii=False
             ),
 
-            current.get(
-                "time"
-            )
-            or now_iso(),
+            now_iso(),
 
             now_iso()
         )
@@ -889,7 +814,7 @@ def get_latest_weather():
     row = connection.execute(
         """
         SELECT *
-        FROM weather_history
+        FROM weather
         ORDER BY id DESC
         LIMIT 1
         """
@@ -897,16 +822,117 @@ def get_latest_weather():
 
     connection.close()
 
-    return (
-        dict(row)
-        if row
-        else None
-    )
+    if not row:
+        return None
+
+    return dict(row)
 
 
-# ============================================================
-# WEATHER ENDPOINT
-# ============================================================
+def format_weather_response(
+    row
+):
+
+    if not row:
+        return None
+
+    try:
+
+        forecast = json.loads(
+            row.get(
+                "forecast_json"
+            ) or "[]"
+        )
+
+    except Exception:
+
+        forecast = []
+
+    return {
+
+        "success": True,
+
+        "location":
+            row.get(
+                "location"
+            ),
+
+        "latitude":
+            row.get(
+                "latitude"
+            ),
+
+        "longitude":
+            row.get(
+                "longitude"
+            ),
+
+        "temperature":
+            row.get(
+                "temperature"
+            ),
+
+        "temperature_c":
+            row.get(
+                "temperature"
+            ),
+
+        "humidity":
+            row.get(
+                "humidity"
+            ),
+
+        "humidity_pct":
+            row.get(
+                "humidity"
+            ),
+
+        "wind_speed":
+            row.get(
+                "wind_speed"
+            ),
+
+        "wind_speed_kmh":
+            row.get(
+                "wind_speed"
+            ),
+
+        "precipitation":
+            row.get(
+                "precipitation"
+            ),
+
+        "precipitation_mm":
+            row.get(
+                "precipitation"
+            ),
+
+        "weather_code":
+            row.get(
+                "weather_code"
+            ),
+
+        "weather_condition":
+            row.get(
+                "weather_condition"
+            ),
+
+        "condition":
+            row.get(
+                "weather_condition"
+            ),
+
+        "forecast":
+            forecast,
+
+        "recorded_at":
+            row.get(
+                "recorded_at"
+            ),
+
+        "source":
+            "Open-Meteo"
+    }
+
 
 @app.route(
     "/api/weather",
@@ -919,217 +945,46 @@ def weather():
         weather_data = get_weather_forecast(
             KOPARGAON_LAT,
             KOPARGAON_LON,
-            days=7
+            WEATHER_DAYS
         )
 
-        save_weather_to_database(
+        save_weather(
             weather_data
         )
 
-        current = weather_data[
-            "current"
-        ]
+        latest = get_latest_weather()
 
-        return jsonify({
-
-            "success":
-                True,
-
-            "location":
-                DEFAULT_LOCATION,
-
-            "latitude":
-                KOPARGAON_LAT,
-
-            "longitude":
-                KOPARGAON_LON,
-
-            "temperature":
-                current[
-                    "temperature_c"
-                ],
-
-            "temperature_c":
-                current[
-                    "temperature_c"
-                ],
-
-            "humidity":
-                current[
-                    "humidity_pct"
-                ],
-
-            "humidity_pct":
-                current[
-                    "humidity_pct"
-                ],
-
-            "wind_speed":
-                current[
-                    "wind_speed_kmh"
-                ],
-
-            "wind_speed_kmh":
-                current[
-                    "wind_speed_kmh"
-                ],
-
-            "precipitation":
-                current[
-                    "precipitation_mm"
-                ],
-
-            "precipitation_mm":
-                current[
-                    "precipitation_mm"
-                ],
-
-            "weather_code":
-                current[
-                    "weather_code"
-                ],
-
-            "weather_condition":
-                current[
-                    "weather_condition"
-                ],
-
-            "condition":
-                current[
-                    "weather_condition"
-                ],
-
-            "current":
-                current,
-
-            "forecast":
-                weather_data[
-                    "forecast"
-                ],
-
-            "days":
-                weather_data[
-                    "forecast"
-                ],
-
-            "source":
-                "Open-Meteo",
-
-            "cached":
-                False
-
-        })
+        return jsonify(
+            format_weather_response(
+                latest
+            )
+        )
 
     except Exception as exc:
 
         logger.exception(
-            "Weather request failed."
+            "Weather request failed"
         )
 
         cached = get_latest_weather()
 
         if cached:
 
-            try:
+            result = format_weather_response(
+                cached
+            )
 
-                forecast = json.loads(
-                    cached.get(
-                        "forecast_json",
-                        "[]"
-                    )
-                )
+            result["cached"] = True
 
-            except Exception:
+            result["warning"] = (
+                "Live weather is temporarily "
+                "unavailable. Showing the latest "
+                "stored weather."
+            )
 
-                forecast = []
-
-            return jsonify({
-
-                "success":
-                    True,
-
-                "location":
-                    cached.get(
-                        "location"
-                    ),
-
-                "latitude":
-                    cached.get(
-                        "latitude"
-                    ),
-
-                "longitude":
-                    cached.get(
-                        "longitude"
-                    ),
-
-                "temperature":
-                    cached.get(
-                        "temperature_c"
-                    ),
-
-                "temperature_c":
-                    cached.get(
-                        "temperature_c"
-                    ),
-
-                "humidity":
-                    cached.get(
-                        "humidity_pct"
-                    ),
-
-                "humidity_pct":
-                    cached.get(
-                        "humidity_pct"
-                    ),
-
-                "wind_speed":
-                    cached.get(
-                        "wind_speed_kmh"
-                    ),
-
-                "wind_speed_kmh":
-                    cached.get(
-                        "wind_speed_kmh"
-                    ),
-
-                "precipitation":
-                    cached.get(
-                        "precipitation_mm"
-                    ),
-
-                "precipitation_mm":
-                    cached.get(
-                        "precipitation_mm"
-                    ),
-
-                "weather_code":
-                    cached.get(
-                        "weather_code"
-                    ),
-
-                "weather_condition":
-                    cached.get(
-                        "weather_condition"
-                    ),
-
-                "condition":
-                    cached.get(
-                        "weather_condition"
-                    ),
-
-                "forecast":
-                    forecast,
-
-                "source":
-                    "SQLite cached Open-Meteo data",
-
-                "cached":
-                    True,
-
-                "warning":
-                    "Live weather temporarily unavailable."
-            })
+            return jsonify(
+                result
+            )
 
         return json_error(
             "Weather service unavailable.",
@@ -1137,10 +992,6 @@ def weather():
             exc
         )
 
-
-# ============================================================
-# WEATHER HISTORY
-# ============================================================
 
 @app.route(
     "/api/weather/history",
@@ -1153,13 +1004,13 @@ def weather_history():
         limit = int(
             request.args.get(
                 "limit",
-                "30"
+                "50"
             )
         )
 
     except ValueError:
 
-        limit = 30
+        limit = 50
 
     limit = max(
         1,
@@ -1171,7 +1022,7 @@ def weather_history():
     rows = connection.execute(
         """
         SELECT *
-        FROM weather_history
+        FROM weather
         ORDER BY id DESC
         LIMIT ?
         """,
@@ -1180,45 +1031,22 @@ def weather_history():
 
     connection.close()
 
-    results = []
-
-    for row in rows:
-
-        item = dict(row)
-
-        try:
-
-            item["forecast"] = json.loads(
-                item.get(
-                    "forecast_json",
-                    "[]"
-                )
-            )
-
-        except Exception:
-
-            item["forecast"] = []
-
-        results.append(item)
-
     return jsonify({
 
-        "success":
-            True,
+        "success": True,
 
         "count":
-            len(results),
+            len(rows),
 
-        "data":
-            results,
-
-        "history":
-            results
+        "data": [
+            dict(row)
+            for row in rows
+        ]
     })
 
 
 # ============================================================
-# MARKET DATA
+# MANDI / MARKET PRICES
 # ============================================================
 
 COMMODITY_ALIASES = {
@@ -1261,7 +1089,8 @@ def normalize_commodity(
 
 
 def get_mandi_prices(
-    commodity=None,
+    commodity="Onion",
+    state="Maharashtra",
     district=None,
     market=None,
     limit=50
@@ -1282,11 +1111,14 @@ def get_mandi_prices(
             "json",
 
         "limit":
-            limit,
-
-        "filters[state]":
-            "Maharashtra"
+            limit
     }
+
+    if state:
+
+        params[
+            "filters[state]"
+        ] = state
 
     if commodity:
 
@@ -1307,7 +1139,7 @@ def get_mandi_prices(
         ] = market
 
     response = requests.get(
-        DATA_GOV_API_URL,
+        DATA_GOV_URL,
         params=params,
         timeout=REQUEST_TIMEOUT
     )
@@ -1316,211 +1148,123 @@ def get_mandi_prices(
 
     payload = response.json()
 
-    return payload.get(
+    records = payload.get(
         "records",
         []
     )
 
-
-def normalize_market_record(
-    record,
-    requested_commodity
-):
-
-    state = (
-        record.get("state")
-        or record.get("State")
-        or "Maharashtra"
-    )
-
-    district = (
-        record.get("district")
-        or record.get("District")
-        or ""
-    )
-
-    market = (
-        record.get("market")
-        or record.get("Market")
-        or ""
-    )
-
-    commodity = (
-        record.get("commodity")
-        or record.get("Commodity")
-        or requested_commodity
-    )
-
-    variety = (
-        record.get("variety")
-        or record.get("Variety")
-        or ""
-    )
-
-    min_price = (
-        record.get("min_price")
-        or record.get("Min Price")
-        or record.get("Min_Price")
-    )
-
-    max_price = (
-        record.get("max_price")
-        or record.get("Max Price")
-        or record.get("Max_Price")
-    )
-
-    modal_price = (
-        record.get("modal_price")
-        or record.get("Modal Price")
-        or record.get("Modal_Price")
-    )
-
-    arrival_date = (
-        record.get("arrival_date")
-        or record.get("Arrival Date")
-        or record.get("Arrival_Date")
-        or record.get("Date")
-    )
-
-    return {
-
-        "state":
-            clean_text(state),
-
-        "district":
-            clean_text(district),
-
-        "market":
-            clean_text(market),
-
-        "commodity":
-            normalize_commodity(
-                commodity
-            ),
-
-        "variety":
-            clean_text(variety),
-
-        "min_price":
-            safe_float(
-                min_price
-            ),
-
-        "max_price":
-            safe_float(
-                max_price
-            ),
-
-        "modal_price":
-            safe_float(
-                modal_price
-            ),
-
-        "arrival_date":
-            clean_text(
-                arrival_date
-            ),
-
-        "source":
-            "data.gov.in / AGMARKNET",
-
-        "raw":
-            record
-    }
-
-
-def save_market_records(
-    records
-):
-
-    if not records:
-        return
-
-    connection = get_db()
+    prices = []
 
     for record in records:
 
-        connection.execute(
-            """
-            INSERT INTO market_prices (
+        prices.append({
 
-                state,
-
-                district,
-
-                market,
-
-                commodity,
-
-                variety,
-
-                min_price,
-
-                max_price,
-
-                modal_price,
-
-                arrival_date,
-
-                source,
-
-                raw_json,
-
-                created_at
-
-            )
-
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-
-            (
-
+            "state":
                 record.get(
                     "state"
                 ),
 
+            "district":
                 record.get(
                     "district"
                 ),
 
+            "market":
                 record.get(
                     "market"
                 ),
 
+            "commodity":
                 record.get(
                     "commodity"
                 ),
 
+            "variety":
                 record.get(
                     "variety"
                 ),
 
-                record.get(
-                    "min_price"
+            "min_price":
+                safe_float(
+                    record.get(
+                        "min_price"
+                    )
                 ),
 
-                record.get(
-                    "max_price"
+            "max_price":
+                safe_float(
+                    record.get(
+                        "max_price"
+                    )
                 ),
 
-                record.get(
-                    "modal_price"
+            "modal_price":
+                safe_float(
+                    record.get(
+                        "modal_price"
+                    )
                 ),
 
+            "date":
                 record.get(
                     "arrival_date"
                 ),
 
-                record.get(
-                    "source"
-                ),
+            "source":
+                "data.gov.in / AGMARKNET"
+        })
 
-                safe_json_string(
-                    record.get(
-                        "raw",
-                        {}
-                    )
-                ),
+    return prices
+
+
+def save_mandi_prices(
+    prices
+):
+
+    if not prices:
+        return
+
+    connection = get_db()
+
+    for price in prices:
+
+        connection.execute(
+            """
+            INSERT INTO mandi_prices (
+                state,
+                district,
+                market,
+                commodity,
+                variety,
+                min_price,
+                max_price,
+                modal_price,
+                arrival_date,
+                source,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                price.get("state"),
+
+                price.get("district"),
+
+                price.get("market"),
+
+                price.get("commodity"),
+
+                price.get("variety"),
+
+                price.get("min_price"),
+
+                price.get("max_price"),
+
+                price.get("modal_price"),
+
+                price.get("date"),
+
+                price.get("source"),
 
                 now_iso()
             )
@@ -1531,7 +1275,7 @@ def save_market_records(
     connection.close()
 
 
-def market_frontend_record(
+def frontend_market_record(
     record
 ):
 
@@ -1624,17 +1368,17 @@ def market_frontend_record(
 
         "arrival_date":
             record.get(
-                "arrival_date"
+                "date"
             ),
 
         "Arrival_Date":
             record.get(
-                "arrival_date"
+                "date"
             ),
 
         "date":
             record.get(
-                "arrival_date"
+                "date"
             ),
 
         "source":
@@ -1644,9 +1388,8 @@ def market_frontend_record(
     }
 
 
-def get_cached_market_records(
-    commodity,
-    limit=100
+def get_cached_market_prices(
+    commodity
 ):
 
     connection = get_db()
@@ -1654,14 +1397,13 @@ def get_cached_market_records(
     rows = connection.execute(
         """
         SELECT *
-        FROM market_prices
+        FROM mandi_prices
         WHERE LOWER(commodity) = LOWER(?)
         ORDER BY id DESC
-        LIMIT ?
+        LIMIT 100
         """,
         (
             commodity,
-            limit
         )
     ).fetchall()
 
@@ -1672,10 +1414,6 @@ def get_cached_market_records(
         for row in rows
     ]
 
-
-# ============================================================
-# MARKET PRICES
-# ============================================================
 
 @app.route(
     "/api/market-prices",
@@ -1693,179 +1431,120 @@ def market_prices():
         )
     )
 
-    district = clean_text(
-        request.args.get(
-            "district",
-            ""
-        )
-    )
-
-    market = clean_text(
-        request.args.get(
-            "market",
-            ""
-        )
-    )
-
     try:
 
-        raw_records = get_mandi_prices(
+        prices = get_mandi_prices(
 
             commodity=commodity,
 
-            district=district
-            if district
-            else None,
+            state=request.args.get(
+                "state",
+                "Maharashtra"
+            ),
 
-            market=market
-            if market
-            else None,
+            district=request.args.get(
+                "district"
+            ),
 
-            limit=50
+            market=request.args.get(
+                "market"
+            ),
+
+            limit=min(
+                int(
+                    request.args.get(
+                        "limit",
+                        "50"
+                    )
+                ),
+                100
+            )
         )
 
-        normalized = []
+        if prices:
 
-        for record in raw_records:
-
-            parsed = normalize_market_record(
-                record,
-                commodity
+            save_mandi_prices(
+                prices
             )
 
-            if parsed.get(
-                "market"
-            ):
-
-                normalized.append(
-                    parsed
+            records = [
+                frontend_market_record(
+                    price
                 )
-
-        # ----------------------------------------------------
-        # Prefer Kopargaon when no explicit market was given.
-        # ----------------------------------------------------
-
-        if not market:
-
-            kopargaon_records = [
-
-                x for x in normalized
-
-                if "kopargaon"
-                in x.get(
-                    "market",
-                    ""
-                ).lower()
-            ]
-
-            if kopargaon_records:
-
-                normalized = (
-                    kopargaon_records
-                )
-
-        if normalized:
-
-            save_market_records(
-                normalized
-            )
-
-            frontend_records = [
-
-                market_frontend_record(
-                    x
-                )
-
-                for x in normalized
+                for price in prices
             ]
 
             return jsonify({
 
-                "success":
-                    True,
+                "success": True,
 
                 "commodity":
                     commodity,
 
                 "count":
-                    len(
-                        frontend_records
-                    ),
+                    len(records),
 
                 "records":
-                    frontend_records,
+                    records,
 
                 "data":
-                    frontend_records,
+                    records,
 
                 "prices":
-                    frontend_records,
+                    records,
 
                 "source":
-                    "data.gov.in / AGMARKNET",
-
-                "cached":
-                    False
+                    "data.gov.in / AGMARKNET"
             })
 
     except Exception as exc:
 
         logger.exception(
-            "Mandi API request failed."
+            "Mandi request failed"
         )
 
-    # --------------------------------------------------------
-    # CACHE FALLBACK
-    # --------------------------------------------------------
-
-    cached = get_cached_market_records(
+    cached = get_cached_market_prices(
         commodity
     )
 
     if cached:
 
-        frontend_records = [
-
-            market_frontend_record(
-                x
+        records = [
+            frontend_market_record(
+                price
             )
-
-            for x in cached
+            for price in cached
         ]
 
         return jsonify({
 
-            "success":
-                True,
+            "success": True,
 
             "commodity":
                 commodity,
 
             "count":
-                len(
-                    frontend_records
-                ),
+                len(records),
 
             "records":
-                frontend_records,
+                records,
 
             "data":
-                frontend_records,
+                records,
 
             "prices":
-                frontend_records,
-
-            "source":
-                "SQLite cached market data",
+                records,
 
             "cached":
-                True
+                True,
+
+            "source":
+                "SQLite cached mandi data"
         })
 
     return jsonify({
 
-        "success":
-            False,
+        "success": False,
 
         "commodity":
             commodity,
@@ -1873,23 +1552,16 @@ def market_prices():
         "count":
             0,
 
-        "records":
-            [],
+        "records": [],
 
-        "data":
-            [],
+        "data": [],
 
-        "prices":
-            [],
+        "prices": [],
 
         "error":
-            "Verified market data is currently unavailable."
+            "Market data is currently unavailable."
     })
 
-
-# ============================================================
-# LEGACY MARKET ENDPOINT
-# ============================================================
 
 @app.route(
     "/api/market",
@@ -1897,157 +1569,10 @@ def market_prices():
 )
 def legacy_market():
 
-    commodity = normalize_commodity(
-        request.args.get(
-            "commodity",
-            request.args.get(
-                "crop",
-                "Onion"
-            )
-        )
-    )
+    response = market_prices()
 
-    try:
+    return response
 
-        raw_records = get_mandi_prices(
-            commodity=commodity,
-            district=None,
-            market="Kopargaon",
-            limit=20
-        )
-
-        normalized = [
-
-            normalize_market_record(
-                x,
-                commodity
-            )
-
-            for x in raw_records
-        ]
-
-        normalized = [
-
-            x for x in normalized
-
-            if x.get("market")
-        ]
-
-        if normalized:
-
-            save_market_records(
-                normalized
-            )
-
-            records = [
-
-                market_frontend_record(
-                    x
-                )
-
-                for x in normalized
-            ]
-
-            return jsonify({
-
-                "success":
-                    True,
-
-                "crop":
-                    commodity.lower(),
-
-                "commodity":
-                    commodity,
-
-                "record":
-                    records[0],
-
-                "records":
-                    records,
-
-                "data":
-                    records,
-
-                "source":
-                    "data.gov.in / AGMARKNET"
-            })
-
-    except Exception:
-
-        logger.exception(
-            "Legacy market endpoint failed."
-        )
-
-    cached = get_cached_market_records(
-        commodity
-    )
-
-    if cached:
-
-        records = [
-
-            market_frontend_record(
-                x
-            )
-
-            for x in cached
-        ]
-
-        return jsonify({
-
-            "success":
-                True,
-
-            "crop":
-                commodity.lower(),
-
-            "commodity":
-                commodity,
-
-            "record":
-                records[0],
-
-            "records":
-                records,
-
-            "data":
-                records,
-
-            "cached":
-                True,
-
-            "source":
-                "SQLite cached market data"
-        })
-
-    return jsonify({
-
-        "success":
-            False,
-
-        "crop":
-            commodity.lower(),
-
-        "commodity":
-            commodity,
-
-        "record":
-            None,
-
-        "records":
-            [],
-
-        "data":
-            [],
-
-        "error":
-            "Market data unavailable."
-    })
-
-
-# ============================================================
-# MARKET HISTORY
-# ============================================================
 
 @app.route(
     "/api/market/history",
@@ -2088,7 +1613,7 @@ def market_history():
     rows = connection.execute(
         """
         SELECT *
-        FROM market_prices
+        FROM mandi_prices
         WHERE LOWER(commodity) = LOWER(?)
         ORDER BY id DESC
         LIMIT ?
@@ -2101,27 +1626,25 @@ def market_history():
 
     connection.close()
 
-    results = [
-        dict(row)
-        for row in rows
-    ]
-
     return jsonify({
 
-        "success":
-            True,
+        "success": True,
 
         "commodity":
             commodity,
 
         "count":
-            len(results),
+            len(rows),
 
-        "history":
-            results,
+        "history": [
+            dict(row)
+            for row in rows
+        ],
 
-        "data":
-            results
+        "data": [
+            dict(row)
+            for row in rows
+        ]
     })
 
 
@@ -2135,10 +1658,10 @@ def ask_openai(
     farmer=None
 ):
 
-    if not openai_client:
+    if not OPENAI_API_KEY:
 
         raise RuntimeError(
-            "OPENAI_API_KEY is not configured."
+            "OPENAI_API_KEY is missing."
         )
 
     language_names = {
@@ -2189,132 +1712,131 @@ You are SmartAgri Farmer Assistant.
 You help Indian farmers with:
 
 - crop cultivation
-- onion cultivation
-- wheat cultivation
 - irrigation
 - weather-related farming decisions
-- mandi and market information
+- onion cultivation
+- wheat cultivation
+- market-price interpretation
 - fertilizer concepts
 - soil management
 - pest prevention
-- crop disease prevention
+- disease prevention
 - harvesting
 - storage
-- agricultural planning
-- government agriculture schemes
+- agriculture schemes
 
-The requested response language is:
-{language_name}
+The user's preferred language is {language_name}.
 
-IMPORTANT LANGUAGE RULE:
+Answer in {language_name} unless the user explicitly asks
+for another language.
 
-Answer in {language_name}.
-
-If language is Hindi, answer in Hindi.
-
-If language is Marathi, answer in Marathi.
-
-If language is English, answer in English.
-
-Do not automatically answer in English when the requested
-language is Hindi or Marathi.
-
-Keep answers practical and easy for an Indian farmer to
-understand.
+Keep answers practical and easy for farmers to understand.
 
 Do not invent live market prices.
 
-Do not invent current weather measurements.
+Do not invent weather measurements.
 
-Do not invent government scheme rules or benefits.
+Do not invent government scheme rules.
 
-If the question requires exact live information, explain
-that the farmer should verify the current official data.
+If current information is required, tell the farmer to
+verify it with the relevant official source.
 
-For crop diseases, do not claim a certain diagnosis unless
-an actual crop-health image analysis result is available.
+Do not claim a crop disease diagnosis with certainty
+without an actual diagnostic model.
 
 {farmer_context}
 """
 
-    try:
+    payload = {
 
-        response = openai_client.chat.completions.create(
+        "model":
+            OPENAI_MODEL,
 
-            model=OPENAI_MODEL,
+        "messages": [
 
-            messages=[
+            {
+                "role":
+                    "system",
 
-                {
-                    "role":
-                        "system",
+                "content":
+                    system_prompt
+            },
 
-                    "content":
-                        system_prompt
-                },
+            {
+                "role":
+                    "user",
 
-                {
-                    "role":
-                        "user",
+                "content":
+                    question
+            }
+        ],
 
-                    "content":
-                        question
-                }
+        "temperature":
+            0.4,
 
-            ],
+        "max_tokens":
+            700
+    }
 
-            temperature=0.4,
+    headers = {
 
-            max_tokens=700,
+        "Authorization":
+            "Bearer " + OPENAI_API_KEY,
 
-            timeout=OPENAI_TIMEOUT
+        "Content-Type":
+            "application/json"
+    }
+
+    response = requests.post(
+
+        OPENAI_URL,
+
+        headers=headers,
+
+        json=payload,
+
+        timeout=45
+    )
+
+    if response.status_code >= 400:
+
+        logger.error(
+            "OpenAI error %s: %s",
+            response.status_code,
+            response.text[:1000]
         )
 
-    except TypeError:
-
-        # Compatibility with OpenAI client versions
-        # that do not accept timeout on this method.
-
-        response = openai_client.chat.completions.create(
-
-            model=OPENAI_MODEL,
-
-            messages=[
-
-                {
-                    "role":
-                        "system",
-
-                    "content":
-                        system_prompt
-                },
-
-                {
-                    "role":
-                        "user",
-
-                    "content":
-                        question
-                }
-
-            ],
-
-            temperature=0.4,
-
-            max_tokens=700
+        raise RuntimeError(
+            "OpenAI request failed: "
+            f"HTTP {response.status_code}"
         )
 
-    answer = (
-        response
-        .choices[0]
-        .message
-        .content
+    result = response.json()
+
+    choices = result.get(
+        "choices",
+        []
+    )
+
+    if not choices:
+
+        raise RuntimeError(
+            "OpenAI returned no response."
+        )
+
+    message = choices[0].get(
+        "message",
+        {}
+    )
+
+    answer = message.get(
+        "content"
     )
 
     if not answer:
 
         raise RuntimeError(
-            "OpenAI returned an empty response."
+            "OpenAI returned an empty answer."
         )
 
     return str(
@@ -2322,7 +1844,7 @@ an actual crop-health image analysis result is available.
     ).strip()
 
 
-def save_ai_conversation(
+def save_ai_history(
     question,
     answer,
     language,
@@ -2333,25 +1855,16 @@ def save_ai_conversation(
 
     connection.execute(
         """
-        INSERT INTO ai_conversations (
-
+        INSERT INTO ai_history (
             question,
-
             answer,
-
             language,
-
             model,
-
             farmer_json,
-
             created_at
-
         )
-
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-
         (
 
             question,
@@ -2362,8 +1875,9 @@ def save_ai_conversation(
 
             OPENAI_MODEL,
 
-            safe_json_string(
-                farmer or {}
+            json.dumps(
+                farmer or {},
+                ensure_ascii=False
             ),
 
             now_iso()
@@ -2374,10 +1888,6 @@ def save_ai_conversation(
 
     connection.close()
 
-
-# ============================================================
-# AI ENDPOINT
-# ============================================================
 
 @app.route(
     "/api/ai",
@@ -2391,11 +1901,7 @@ def ai():
 
     question = clean_text(
         data.get(
-            "question",
-            data.get(
-                "message",
-                ""
-            )
+            "question"
         )
     )
 
@@ -2409,14 +1915,6 @@ def ai():
     farmer = data.get(
         "farmer"
     ) or {}
-
-    if language not in {
-        "en",
-        "hi",
-        "mr"
-    }:
-
-        language = "en"
 
     if not question:
 
@@ -2436,21 +1934,14 @@ def ai():
 
         answer = ask_openai(
 
-            question=
+            question,
 
-                question,
+            language,
 
-            language=
-
-                language,
-
-            farmer=
-
-                farmer
+            farmer
         )
 
-        # Save successful conversation.
-        save_ai_conversation(
+        save_ai_history(
 
             question,
 
@@ -2476,16 +1967,13 @@ def ai():
                 answer,
 
             "model":
-                OPENAI_MODEL,
-
-            "language":
-                language
+                OPENAI_MODEL
         })
 
     except Exception as exc:
 
         logger.exception(
-            "OpenAI request failed."
+            "AI request failed"
         )
 
         return json_error(
@@ -2496,106 +1984,104 @@ def ai():
 
 
 # ============================================================
-# AI HISTORY
-# ============================================================
-
-@app.route(
-    "/api/ai/history",
-    methods=["GET"]
-)
-def ai_history():
-
-    try:
-
-        limit = int(
-            request.args.get(
-                "limit",
-                "50"
-            )
-        )
-
-    except ValueError:
-
-        limit = 50
-
-    limit = max(
-        1,
-        min(limit, 500)
-    )
-
-    connection = get_db()
-
-    rows = connection.execute(
-        """
-        SELECT
-            id,
-            question,
-            answer,
-            language,
-            model,
-            created_at
-        FROM ai_conversations
-        ORDER BY id DESC
-        LIMIT ?
-        """,
-        (limit,)
-    ).fetchall()
-
-    connection.close()
-
-    return jsonify({
-
-        "success":
-            True,
-
-        "count":
-            len(rows),
-
-        "history":
-            [
-                dict(row)
-                for row in rows
-            ]
-    })
-
-
-# ============================================================
 # PLANT.ID CROP HEALTH
 # ============================================================
 
-def extract_plant_health_result(
+def plant_id_identification(
+    image_bytes,
+    filename
+):
+
+    if not PLANT_ID_API_KEY:
+
+        raise RuntimeError(
+            "PLANT_ID_API_KEY is missing."
+        )
+
+    import base64
+
+    encoded_image = base64.b64encode(
+        image_bytes
+    ).decode(
+        "utf-8"
+    )
+
+    headers = {
+
+        "Api-Key":
+            PLANT_ID_API_KEY,
+
+        "Content-Type":
+            "application/json"
+    }
+
+    payload = {
+
+        "images": [
+            encoded_image
+        ],
+
+        "health":
+            "all",
+
+        "similar_images":
+            True,
+
+        "language":
+            "en"
+    }
+
+    response = requests.post(
+
+        PLANT_ID_URL,
+
+        headers=headers,
+
+        json=payload,
+
+        timeout=60
+    )
+
+    if response.status_code >= 400:
+
+        logger.error(
+            "Plant.id error %s: %s",
+            response.status_code,
+            response.text[:1000]
+        )
+
+        raise RuntimeError(
+            "Plant.id request failed: "
+            f"HTTP {response.status_code}"
+        )
+
+    return response.json()
+
+
+def extract_plant_health(
     result
 ):
 
-    result_data = (
+    plant_name = None
+
+    disease_name = None
+
+    probability = None
+
+    # --------------------------------------------------------
+    # Plant identification
+    # --------------------------------------------------------
+
+    suggestions = (
         result.get(
             "result",
             {}
         )
-        if isinstance(
-            result,
-            dict
-        )
-        else {}
-    )
-
-    # --------------------------------------------------------
-    # Plant name
-    # --------------------------------------------------------
-
-    plant_name = ""
-
-    scientific_name = ""
-
-    classification = (
-        result_data.get(
+        .get(
             "classification",
             {}
         )
-    )
-
-    suggestions = (
-        classification.get(
+        .get(
             "suggestions",
             []
         )
@@ -2603,74 +2089,37 @@ def extract_plant_health_result(
 
     if suggestions:
 
-        first = suggestions[0]
+        best = suggestions[0]
 
         plant_name = (
-            first.get(
+            best.get(
                 "name"
             )
-            or ""
         )
 
-        scientific_name = plant_name
-
-    # --------------------------------------------------------
-    # Health
-    # --------------------------------------------------------
-
-    health_status = ""
-
-    health_probability = None
-
-    is_healthy = (
-        result_data.get(
-            "is_healthy",
-            {}
-        )
-    )
-
-    if isinstance(
-        is_healthy,
-        dict
-    ):
-
-        health_probability = (
-            safe_float(
-                is_healthy.get(
-                    "probability"
-                )
+        probability = safe_float(
+            best.get(
+                "probability"
             )
         )
 
-        value = is_healthy.get(
-            "binary"
+    # --------------------------------------------------------
+    # Health assessment
+    # --------------------------------------------------------
+
+    health = (
+        result.get(
+            "result",
+            {}
         )
-
-        if value is True:
-
-            health_status = "Healthy"
-
-        elif value is False:
-
-            health_status = "Potential issue detected"
-
-    # --------------------------------------------------------
-    # Diseases
-    # --------------------------------------------------------
-
-    disease_name = ""
-
-    disease_probability = None
-
-    disease = (
-        result_data.get(
+        .get(
             "disease",
             {}
         )
     )
 
     disease_suggestions = (
-        disease.get(
+        health.get(
             "suggestions",
             []
         )
@@ -2678,66 +2127,28 @@ def extract_plant_health_result(
 
     if disease_suggestions:
 
-        disease_top = (
+        best_disease = (
             disease_suggestions[0]
         )
 
         disease_name = (
-            disease_top.get(
+            best_disease.get(
                 "name"
             )
-            or ""
         )
 
         disease_probability = (
             safe_float(
-                disease_top.get(
+                best_disease.get(
                     "probability"
                 )
             )
         )
 
-    # Some Plant.id responses may use
-    # disease.identification instead.
+        if disease_probability is not None:
 
-    if not disease_name:
-
-        disease_identification = (
-            result_data.get(
-                "disease",
-                {}
-            ).get(
-                "identification",
-                {}
-            )
-        )
-
-        disease_suggestions = (
-            disease_identification.get(
-                "suggestions",
-                []
-            )
-        )
-
-        if disease_suggestions:
-
-            disease_top = (
-                disease_suggestions[0]
-            )
-
-            disease_name = (
-                disease_top.get(
-                    "name"
-                )
-                or ""
-            )
-
-            disease_probability = (
-                safe_float(
-                    disease_top.get(
-                        "probability"
-                    )
-                )
+            probability = (
+                disease_probability
             )
 
     return {
@@ -2745,26 +2156,17 @@ def extract_plant_health_result(
         "plant_name":
             plant_name,
 
-        "scientific_name":
-            scientific_name,
-
-        "health_status":
-            health_status,
-
-        "health_probability":
-            health_probability,
-
         "disease_name":
             disease_name,
 
-        "disease_probability":
-            disease_probability
+        "probability":
+            probability
     }
 
 
-def save_crop_health_result(
+def save_plant_health(
     filename,
-    parsed,
+    extracted,
     raw_result
 ):
 
@@ -2772,61 +2174,35 @@ def save_crop_health_result(
 
     connection.execute(
         """
-        INSERT INTO crop_health_results (
-
+        INSERT INTO plant_health (
             filename,
-
             plant_name,
-
-            scientific_name,
-
-            health_status,
-
-            health_probability,
-
             disease_name,
-
-            disease_probability,
-
-            result_json,
-
+            probability,
+            diagnosis_json,
             created_at
-
         )
-
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
-
         (
 
             filename,
 
-            parsed.get(
+            extracted.get(
                 "plant_name"
             ),
 
-            parsed.get(
-                "scientific_name"
-            ),
-
-            parsed.get(
-                "health_status"
-            ),
-
-            parsed.get(
-                "health_probability"
-            ),
-
-            parsed.get(
+            extracted.get(
                 "disease_name"
             ),
 
-            parsed.get(
-                "disease_probability"
+            extracted.get(
+                "probability"
             ),
 
-            safe_json_string(
-                raw_result
+            json.dumps(
+                raw_result,
+                ensure_ascii=False
             ),
 
             now_iso()
@@ -2837,10 +2213,6 @@ def save_crop_health_result(
 
     connection.close()
 
-
-# ============================================================
-# CROP HEALTH ENDPOINT
-# ============================================================
 
 @app.route(
     "/api/crop-health",
@@ -2861,32 +2233,26 @@ def crop_health():
 
     filename = (
         uploaded_file.filename
-        or "crop_image"
+        or "crop-image"
     )
 
+    extension = os.path.splitext(
+        filename
+    )[1].lower()
+
     allowed_extensions = {
+
         ".jpg",
         ".jpeg",
         ".png",
         ".webp"
     }
 
-    extension = os.path.splitext(
-        filename
-    )[1].lower()
-
     if extension not in allowed_extensions:
 
         return json_error(
-            "Please upload JPG, JPEG, PNG or WEBP image.",
+            "Please upload JPG, JPEG, PNG or WEBP.",
             400
-        )
-
-    if not PLANT_ID_API_KEY:
-
-        return json_error(
-            "PLANT_ID_API_KEY is not configured.",
-            503
         )
 
     try:
@@ -2898,162 +2264,81 @@ def crop_health():
         if not image_bytes:
 
             return json_error(
-                "The uploaded image is empty.",
+                "Uploaded image is empty.",
                 400
             )
 
-        image_base64 = (
-            base64.b64encode(
-                image_bytes
-            )
-            .decode("utf-8")
+        result = plant_id_identification(
+
+            image_bytes,
+
+            filename
         )
 
-        payload = {
-
-            "images": [
-                image_base64
-            ],
-
-            "health":
-                "all",
-
-            "similar_images":
-                True,
-
-            "language":
-                "en"
-        }
-
-        headers = {
-
-            "Api-Key":
-                PLANT_ID_API_KEY,
-
-            "Content-Type":
-                "application/json",
-
-            "Accept":
-                "application/json"
-        }
-
-        response = requests.post(
-
-            PLANT_ID_URL,
-
-            headers=headers,
-
-            json=payload,
-
-            timeout=PLANT_ID_TIMEOUT
+        extracted = extract_plant_health(
+            result
         )
 
-        if response.status_code >= 400:
-
-            logger.error(
-
-                "Plant.id error %s: %s",
-
-                response.status_code,
-
-                response.text[:1000]
-            )
-
-            return json_error(
-
-                "Plant.id crop-health request failed.",
-
-                502,
-
-                response.text[:500]
-            )
-
-        result = response.json()
-
-        parsed = (
-            extract_plant_health_result(
-                result
-            )
-        )
-
-        save_crop_health_result(
+        save_plant_health(
 
             filename,
 
-            parsed,
+            extracted,
 
             result
         )
 
-        # ----------------------------------------------------
-        # Return both simplified values and raw result.
-        # This makes the endpoint compatible with different
-        # frontend implementations.
-        # ----------------------------------------------------
+        plant_name = (
+            extracted.get(
+                "plant_name"
+            )
+            or "Unknown"
+        )
+
+        disease_name = (
+            extracted.get(
+                "disease_name"
+            )
+            or "No disease detected"
+        )
+
+        probability = (
+            extracted.get(
+                "probability"
+            )
+        )
 
         return jsonify({
 
             "success":
                 True,
 
+            "plant":
+                plant_name,
+
             "plant_name":
-                parsed[
-                    "plant_name"
-                ],
+                plant_name,
 
-            "scientific_name":
-                parsed[
-                    "scientific_name"
-                ],
-
-            "health_status":
-                parsed[
-                    "health_status"
-                ],
-
-            "health_probability":
-                parsed[
-                    "health_probability"
-                ],
+            "disease":
+                disease_name,
 
             "disease_name":
-                parsed[
-                    "disease_name"
-                ],
+                disease_name,
 
-            "disease_probability":
-                parsed[
-                    "disease_probability"
-                ],
+            "probability":
+                probability,
 
             "diagnosis":
-                parsed[
-                    "disease_name"
-                ]
-                or parsed[
-                    "health_status"
-                ]
-                or "Analysis completed.",
-
-            "result":
-                parsed[
-                    "disease_name"
-                ]
-                or parsed[
-                    "health_status"
-                ]
-                or "Analysis completed.",
+                disease_name,
 
             "prediction":
-                parsed[
-                    "plant_name"
-                ],
+                disease_name,
+
+            "result":
+                disease_name,
 
             "message":
                 "Crop image analyzed successfully.",
-
-            "data":
-                result,
 
             "raw":
                 result
@@ -3062,64 +2347,52 @@ def crop_health():
     except Exception as exc:
 
         logger.exception(
-            "Crop health request failed."
+            "Crop-health request failed"
         )
 
         return json_error(
-            "Crop-health service is currently unavailable.",
+            "Crop health analysis is currently unavailable.",
             503,
             exc
         )
 
 
 # ============================================================
-# CROP HEALTH HISTORY
+# DATABASE API
 # ============================================================
 
+ALLOWED_TABLES = {
+
+    "weather",
+
+    "mandi_prices",
+
+    "ai_history",
+
+    "plant_health"
+}
+
+
 @app.route(
-    "/api/crop-health/history",
+    "/api/database",
     methods=["GET"]
 )
-def crop_health_history():
-
-    try:
-
-        limit = int(
-            request.args.get(
-                "limit",
-                "50"
-            )
-        )
-
-    except ValueError:
-
-        limit = 50
-
-    limit = max(
-        1,
-        min(limit, 500)
-    )
+def database_info():
 
     connection = get_db()
 
-    rows = connection.execute(
-        """
-        SELECT
-            id,
-            filename,
-            plant_name,
-            scientific_name,
-            health_status,
-            health_probability,
-            disease_name,
-            disease_probability,
-            created_at
-        FROM crop_health_results
-        ORDER BY id DESC
-        LIMIT ?
-        """,
-        (limit,)
-    ).fetchall()
+    tables = {}
+
+    for table in ALLOWED_TABLES:
+
+        row = connection.execute(
+            f"""
+            SELECT COUNT(*) AS count
+            FROM {table}
+            """
+        ).fetchone()
+
+        tables[table] = row["count"]
 
     connection.close()
 
@@ -3128,14 +2401,123 @@ def crop_health_history():
         "success":
             True,
 
-        "count":
+        "database":
+            DATABASE,
+
+        "database_type":
+            "SQLite",
+
+        "tables":
+            tables,
+
+        "message":
+            "SmartAgri database is available."
+    })
+
+
+@app.route(
+    "/api/database/<table>",
+    methods=["GET"]
+)
+def database_table(
+    table
+):
+
+    table = table.lower().strip()
+
+    if table not in ALLOWED_TABLES:
+
+        return json_error(
+            "Invalid table name.",
+            400
+        )
+
+    try:
+
+        limit = int(
+            request.args.get(
+                "limit",
+                "100"
+            )
+        )
+
+    except ValueError:
+
+        limit = 100
+
+    limit = max(
+        1,
+        min(limit, 1000)
+    )
+
+    connection = get_db()
+
+    rows = connection.execute(
+        f"""
+        SELECT *
+        FROM {table}
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (
+            limit,
+        )
+    ).fetchall()
+
+    columns = []
+
+    if rows:
+
+        columns = list(
+            rows[0].keys()
+        )
+
+    else:
+
+        table_info = connection.execute(
+            f"""
+            PRAGMA table_info({table})
+            """
+        ).fetchall()
+
+        columns = [
+            row["name"]
+            for row in table_info
+        ]
+
+    count_row = connection.execute(
+        f"""
+        SELECT COUNT(*) AS count
+        FROM {table}
+        """
+    ).fetchone()
+
+    connection.close()
+
+    return jsonify({
+
+        "success":
+            True,
+
+        "database":
+            DATABASE,
+
+        "table":
+            table,
+
+        "total_records":
+            count_row["count"],
+
+        "returned_records":
             len(rows),
 
-        "history":
-            [
-                dict(row)
-                for row in rows
-            ]
+        "columns":
+            columns,
+
+        "data": [
+            dict(row)
+            for row in rows
+        ]
     })
 
 
@@ -3151,33 +2533,27 @@ def status():
 
     connection = get_db()
 
-    weather_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM weather_history
-        """
-    ).fetchone()[0]
+    counts = {}
 
-    market_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM market_prices
-        """
-    ).fetchone()[0]
+    for table in ALLOWED_TABLES:
 
-    ai_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM ai_conversations
-        """
-    ).fetchone()[0]
+        row = connection.execute(
+            f"""
+            SELECT COUNT(*) AS count
+            FROM {table}
+            """
+        ).fetchone()
 
-    crop_count = connection.execute(
+        counts[table] = row["count"]
+
+    latest_weather = connection.execute(
         """
-        SELECT COUNT(*)
-        FROM crop_health_results
+        SELECT *
+        FROM weather
+        ORDER BY id DESC
+        LIMIT 1
         """
-    ).fetchone()[0]
+    ).fetchone()
 
     connection.close()
 
@@ -3193,58 +2569,58 @@ def status():
             "online",
 
         "database":
-            os.path.abspath(
-                DATABASE
-            ),
+            DATABASE,
 
         "database_type":
             "SQLite",
 
-        "tables": [
+        "services": {
 
-            "weather_history",
+            "openai":
+                bool(
+                    OPENAI_API_KEY
+                ),
 
-            "market_prices",
+            "open_meteo":
+                True,
 
-            "ai_conversations",
+            "data_gov":
+                bool(
+                    DATA_GOV_API_KEY
+                ),
 
-            "crop_health_results"
-        ],
-
-        "ai_configured":
-            bool(
-                OPENAI_API_KEY
-            ),
+            "plant_id":
+                bool(
+                    PLANT_ID_API_KEY
+                )
+        },
 
         "ai_model":
             OPENAI_MODEL
             if OPENAI_API_KEY
             else None,
 
-        "weather_configured":
-            True,
-
-        "market_api_configured":
-            bool(
-                DATA_GOV_API_KEY
-            ),
-
-        "plant_id_configured":
-            bool(
-                PLANT_ID_API_KEY
-            ),
+        "weather_location":
+            WEATHER_LOCATION,
 
         "weather_records":
-            weather_count,
+            counts["weather"],
 
         "market_records":
-            market_count,
+            counts["mandi_prices"],
 
-        "ai_conversations":
-            ai_count,
+        "ai_records":
+            counts["ai_history"],
 
-        "crop_health_records":
-            crop_count
+        "plant_health_records":
+            counts["plant_health"],
+
+        "latest_weather":
+            dict(
+                latest_weather
+            )
+            if latest_weather
+            else None
     })
 
 
@@ -3265,9 +2641,6 @@ def health():
 
         "service":
             "SmartAgri",
-
-        "database":
-            "SQLite",
 
         "timestamp":
             now_iso()
@@ -3296,9 +2669,7 @@ def home():
             "SmartAgri Flask backend is running.",
 
         "database":
-            os.path.abspath(
-                DATABASE
-            ),
+            DATABASE,
 
         "endpoints": [
 
@@ -3306,25 +2677,29 @@ def home():
 
             "/api/status",
 
+            "/api/database",
+
+            "/api/database/weather",
+
+            "/api/database/mandi_prices",
+
+            "/api/database/ai_history",
+
+            "/api/database/plant_health",
+
             "/api/weather",
 
             "/api/weather/history",
 
             "/api/market-prices?commodity=Onion",
 
-            "/api/market-prices?commodity=Wheat",
-
-            "/api/market",
+            "/api/market?commodity=Onion",
 
             "/api/market/history?commodity=Onion",
 
             "/api/ai",
 
-            "/api/ai/history",
-
-            "/api/crop-health",
-
-            "/api/crop-health/history"
+            "/api/crop-health"
         ]
     })
 
@@ -3350,7 +2725,7 @@ def not_found(error):
 def internal_error(error):
 
     logger.exception(
-        "Internal server error."
+        "Internal server error"
     )
 
     return jsonify({
@@ -3383,9 +2758,7 @@ if __name__ == "__main__":
 
     logger.info(
         "Database: %s",
-        os.path.abspath(
-            DATABASE
-        )
+        DATABASE
     )
 
     logger.info(
@@ -3401,11 +2774,7 @@ if __name__ == "__main__":
     )
 
     logger.info(
-        "Open-Meteo: enabled"
-    )
-
-    logger.info(
-        "Data.gov.in configured: %s",
+        "Data.gov configured: %s",
         bool(
             DATA_GOV_API_KEY
         )
@@ -3419,14 +2788,8 @@ if __name__ == "__main__":
     )
 
     logger.info(
-        "Location: %s",
-        DEFAULT_LOCATION
-    )
-
-    logger.info(
-        "Coordinates: %s, %s",
-        KOPARGAON_LAT,
-        KOPARGAON_LON
+        "Weather location: %s",
+        WEATHER_LOCATION
     )
 
     logger.info(
