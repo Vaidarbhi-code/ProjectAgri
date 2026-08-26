@@ -1,6 +1,6 @@
 // ============================================================
+// SMART AGRI - PRODUCTION SERVER
 // server.js
-// Smart Agriculture Market Intelligence API
 // ============================================================
 
 require("dotenv").config();
@@ -12,15 +12,6 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 
-// Node.js 18+ includes fetch natively.
-
-// ============================================================
-// MIDDLEWARE
-// ============================================================
-
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
-
 // ============================================================
 // ENVIRONMENT VARIABLES
 // ============================================================
@@ -29,37 +20,58 @@ const DATA_GOV_API_KEY = process.env.DATA_GOV_API_KEY;
 const PLANT_ID_API_KEY = process.env.PLANT_ID_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+// Open-Meteo DOES NOT require an API key.
+
 // ============================================================
-// CONSTANTS
+// EXPRESS CONFIGURATION
 // ============================================================
 
-const DATA_GOV_RESOURCE =
-    "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070";
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ extended: true }));
 
-const OPEN_METEO_URL =
-    "https://api.open-meteo.com/v1/forecast";
+// ============================================================
+// BASIC REQUEST LOGGER
+// ============================================================
 
-const PLANT_ID_URL =
-    "https://plant.id/api/v3/identification";
+app.use((req, res, next) => {
+    console.log(
+        `${new Date().toISOString()} ${req.method} ${req.originalUrl}`
+    );
 
-const OPENAI_URL =
-    "https://api.openai.com/v1/responses";
+    next();
+});
 
 // ============================================================
 // HEALTH CHECK
 // ============================================================
 
 app.get("/health", (req, res) => {
-    res.json({
+    res.status(200).json({
         status: "ok",
         service: "Smart Agriculture Market Intelligence API",
         timestamp: new Date().toISOString(),
 
         services: {
-            weather: true,
-            market: Boolean(DATA_GOV_API_KEY),
-            cropHealth: Boolean(PLANT_ID_API_KEY),
-            ai: Boolean(OPENAI_API_KEY)
+            weather: {
+                provider: "Open-Meteo",
+                configured: true,
+                apiKeyRequired: false
+            },
+
+            market: {
+                provider: "data.gov.in",
+                configured: Boolean(DATA_GOV_API_KEY)
+            },
+
+            cropHealth: {
+                provider: "Plant.id",
+                configured: Boolean(PLANT_ID_API_KEY)
+            },
+
+            ai: {
+                provider: "OpenAI",
+                configured: Boolean(OPENAI_API_KEY)
+            }
         }
     });
 });
@@ -104,65 +116,65 @@ app.get("/api/status", (req, res) => {
 });
 
 // ============================================================
-// WEATHER - OPEN-METEO
+// WEATHER
+// OPEN-METEO
 // ============================================================
 
 app.get("/api/weather", async (req, res) => {
     try {
-        const { lat, lon } = req.query;
+        const lat = Number(req.query.lat);
+        const lon = Number(req.query.lon);
 
-        // --------------------------------------------------------
-        // VALIDATE COORDINATES
-        // --------------------------------------------------------
-
-        if (lat === undefined || lon === undefined) {
+        if (!Number.isFinite(lat)) {
             return res.status(400).json({
                 success: false,
-                error: "Latitude and longitude are required"
+                error: "Valid latitude is required"
             });
         }
 
-        const latitude = Number(lat);
-        const longitude = Number(lon);
-
-        if (
-            !Number.isFinite(latitude) ||
-            latitude < -90 ||
-            latitude > 90
-        ) {
+        if (!Number.isFinite(lon)) {
             return res.status(400).json({
                 success: false,
-                error: "Invalid latitude"
+                error: "Valid longitude is required"
             });
         }
 
-        if (
-            !Number.isFinite(longitude) ||
-            longitude < -180 ||
-            longitude > 180
-        ) {
+        if (lat < -90 || lat > 90) {
             return res.status(400).json({
                 success: false,
-                error: "Invalid longitude"
+                error: "Latitude must be between -90 and 90"
+            });
+        }
+
+        if (lon < -180 || lon > 180) {
+            return res.status(400).json({
+                success: false,
+                error: "Longitude must be between -180 and 180"
             });
         }
 
         // --------------------------------------------------------
-        // OPEN-METEO PARAMETERS
+        // EXACT OPEN-METEO PARAMETERS
         // --------------------------------------------------------
 
-        const params = new URLSearchParams({
-            latitude: String(latitude),
-            longitude: String(longitude),
+        const params = new URLSearchParams();
 
-            daily: [
+        params.set("latitude", String(lat));
+        params.set("longitude", String(lon));
+
+        params.set(
+            "daily",
+            [
                 "weather_code",
                 "wind_speed_10m_max",
                 "precipitation_sum",
                 "rain_sum"
-            ].join(","),
+            ].join(",")
+        );
 
-            hourly: [
+        params.set(
+            "hourly",
+            [
                 "temperature_2m",
                 "wind_speed_10m",
                 "precipitation",
@@ -171,198 +183,91 @@ app.get("/api/weather", async (req, res) => {
                 "is_day",
                 "temperature_1000hPa",
                 "relative_humidity_1000hPa"
-            ].join(","),
-
-            current: [
-                "temperature_2m",
-                "relative_humidity_2m",
-                "rain",
-                "precipitation",
-                "wind_speed_10m"
-            ].join(","),
-
-            minutely_15: [
-                "temperature_2m",
-                "relative_humidity_2m",
-                "precipitation",
-                "rain",
-                "wind_speed_10m"
-            ].join(","),
-
-            timezone: "auto"
-        });
-
-        const url =
-            `${OPEN_METEO_URL}?${params.toString()}`;
-
-        console.log(
-            `[WEATHER] Fetching ${latitude}, ${longitude}`
+            ].join(",")
         );
 
+        params.set(
+            "current",
+            [
+                "temperature_2m",
+                "relative_humidity_2m",
+                "rain",
+                "precipitation",
+                "wind_speed_10m"
+            ].join(",")
+        );
+
+        params.set(
+            "minutely_15",
+            [
+                "temperature_2m",
+                "relative_humidity_2m",
+                "precipitation",
+                "rain",
+                "wind_speed_10m"
+            ].join(",")
+        );
+
+        params.set("timezone", "auto");
+
+        const weatherURL =
+            `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
+
+        console.log("Open-Meteo request:", weatherURL);
+
         // --------------------------------------------------------
-        // FETCH WEATHER
+        // CALL OPEN-METEO
         // --------------------------------------------------------
 
-        const response = await fetch(url);
+        const response = await fetch(weatherURL);
 
-        if (!response.ok) {
-            const errorText = await response.text();
+        const rawText = await response.text();
 
+        let data;
+
+        try {
+            data = JSON.parse(rawText);
+        } catch {
             console.error(
-                "[WEATHER] Open-Meteo error:",
-                response.status,
-                errorText
+                "Open-Meteo returned invalid JSON:",
+                rawText
             );
 
             return res.status(502).json({
                 success: false,
-                error: "Weather provider unavailable",
-                provider_status: response.status
+                error: "Invalid response from Open-Meteo"
             });
         }
 
-        const data = await response.json();
+        if (!response.ok) {
+            console.error(
+                "Open-Meteo error:",
+                response.status,
+                data
+            );
+
+            return res.status(502).json({
+                success: false,
+                error: "Open-Meteo weather service returned an error",
+                provider_status: response.status,
+                provider_error: data
+            });
+        }
 
         // --------------------------------------------------------
-        // VALIDATE RESPONSE
+        // VERIFY CURRENT WEATHER EXISTS
         // --------------------------------------------------------
 
         if (!data.current) {
+            console.error(
+                "Open-Meteo response has no current weather:",
+                data
+            );
+
             return res.status(502).json({
                 success: false,
-                error: "Invalid weather response"
+                error: "Current weather data was not returned by Open-Meteo"
             });
-        }
-
-        // --------------------------------------------------------
-        // CURRENT WEATHER
-        // --------------------------------------------------------
-
-        const current = {
-            time: data.current.time ?? null,
-
-            temperature_c:
-                data.current.temperature_2m ?? null,
-
-            humidity_pct:
-                data.current.relative_humidity_2m ?? null,
-
-            rain_mm:
-                data.current.rain ?? null,
-
-            precipitation_mm:
-                data.current.precipitation ?? null,
-
-            wind_speed_kmh:
-                data.current.wind_speed_10m ?? null
-        };
-
-        // --------------------------------------------------------
-        // DAILY WEATHER
-        // --------------------------------------------------------
-
-        const daily = [];
-
-        if (data.daily?.time) {
-            for (
-                let i = 0;
-                i < data.daily.time.length;
-                i++
-            ) {
-                daily.push({
-                    date:
-                        data.daily.time[i],
-
-                    weather_code:
-                        data.daily.weather_code?.[i] ?? null,
-
-                    wind_speed_max_kmh:
-                        data.daily.wind_speed_10m_max?.[i] ?? null,
-
-                    precipitation_mm:
-                        data.daily.precipitation_sum?.[i] ?? null,
-
-                    rain_mm:
-                        data.daily.rain_sum?.[i] ?? null
-                });
-            }
-        }
-
-        // --------------------------------------------------------
-        // HOURLY WEATHER
-        // --------------------------------------------------------
-
-        const hourly = [];
-
-        if (data.hourly?.time) {
-            for (
-                let i = 0;
-                i < data.hourly.time.length;
-                i++
-            ) {
-                hourly.push({
-                    time:
-                        data.hourly.time[i],
-
-                    temperature_c:
-                        data.hourly.temperature_2m?.[i] ?? null,
-
-                    wind_speed_kmh:
-                        data.hourly.wind_speed_10m?.[i] ?? null,
-
-                    precipitation_mm:
-                        data.hourly.precipitation?.[i] ?? null,
-
-                    rain_mm:
-                        data.hourly.rain?.[i] ?? null,
-
-                    humidity_pct:
-                        data.hourly.relative_humidity_2m?.[i] ?? null,
-
-                    is_day:
-                        data.hourly.is_day?.[i] ?? null,
-
-                    temperature_1000hPa_c:
-                        data.hourly.temperature_1000hPa?.[i] ?? null,
-
-                    humidity_1000hPa_pct:
-                        data.hourly.relative_humidity_1000hPa?.[i] ?? null
-                });
-            }
-        }
-
-        // --------------------------------------------------------
-        // 15-MINUTE WEATHER
-        // --------------------------------------------------------
-
-        const minutely15 = [];
-
-        if (data.minutely_15?.time) {
-            for (
-                let i = 0;
-                i < data.minutely_15.time.length;
-                i++
-            ) {
-                minutely15.push({
-                    time:
-                        data.minutely_15.time[i],
-
-                    temperature_c:
-                        data.minutely_15.temperature_2m?.[i] ?? null,
-
-                    humidity_pct:
-                        data.minutely_15.relative_humidity_2m?.[i] ?? null,
-
-                    precipitation_mm:
-                        data.minutely_15.precipitation?.[i] ?? null,
-
-                    rain_mm:
-                        data.minutely_15.rain?.[i] ?? null,
-
-                    wind_speed_kmh:
-                        data.minutely_15.wind_speed_10m?.[i] ?? null
-                });
-            }
         }
 
         // --------------------------------------------------------
@@ -375,43 +280,56 @@ app.get("/api/weather", async (req, res) => {
             source: "Open-Meteo",
 
             location: {
-                latitude:
-                    data.latitude,
-
-                longitude:
-                    data.longitude,
-
-                timezone:
-                    data.timezone,
-
+                latitude: data.latitude,
+                longitude: data.longitude,
+                timezone: data.timezone,
                 timezone_abbreviation:
-                    data.timezone_abbreviation
+                    data.timezone_abbreviation || null
             },
 
-            current,
+            current: {
+                time: data.current.time,
 
-            daily,
+                temperature_c:
+                    data.current.temperature_2m ?? null,
 
-            hourly,
+                humidity_pct:
+                    data.current.relative_humidity_2m ?? null,
 
-            minutely_15: minutely15
+                rain_mm:
+                    data.current.rain ?? null,
+
+                precipitation_mm:
+                    data.current.precipitation ?? null,
+
+                wind_speed_kmh:
+                    data.current.wind_speed_10m ?? null
+            },
+
+            daily: data.daily || null,
+
+            hourly: data.hourly || null,
+
+            minutely_15: data.minutely_15 || null
         });
 
     } catch (error) {
         console.error(
-            "[WEATHER] Server error:",
+            "WEATHER SERVER ERROR:",
             error
         );
 
         return res.status(500).json({
             success: false,
-            error: "Failed to fetch weather"
+            error: "Failed to fetch real-time weather",
+            message: error.message
         });
     }
 });
 
 // ============================================================
-// MARKET DATA - DATA.GOV.IN
+// MARKET DATA
+// DATA.GOV.IN
 // ============================================================
 
 app.get("/api/market", async (req, res) => {
@@ -423,22 +341,22 @@ app.get("/api/market", async (req, res) => {
             });
         }
 
-        const {
-            crop,
-            state,
-            district,
-            limit = 50
-        } = req.query;
+        const crop = req.query.crop;
+        const state = req.query.state;
+        const district = req.query.district;
 
-        const safeLimit = Math.min(
-            Math.max(Number(limit) || 50, 1),
-            100
-        );
+        let limit = Number(req.query.limit || 50);
+
+        if (!Number.isFinite(limit)) {
+            limit = 50;
+        }
+
+        limit = Math.min(Math.max(limit, 1), 100);
 
         const params = new URLSearchParams({
             "api-key": DATA_GOV_API_KEY,
             format: "json",
-            limit: String(safeLimit)
+            limit: String(limit)
         });
 
         if (crop) {
@@ -463,26 +381,29 @@ app.get("/api/market", async (req, res) => {
         }
 
         const url =
-            `${DATA_GOV_RESOURCE}?${params.toString()}`;
+            "https://api.data.gov.in/resource/" +
+            "9ef84268-d588-465a-a308-a864a43d0070?" +
+            params.toString();
+
+        console.log("Data.gov.in request");
 
         const response = await fetch(url);
 
-        if (!response.ok) {
-            const errorText = await response.text();
+        const data = await response.json();
 
+        if (!response.ok) {
             console.error(
-                "[MARKET] data.gov.in error:",
+                "Data.gov.in error:",
                 response.status,
-                errorText
+                data
             );
 
             return res.status(502).json({
                 success: false,
-                error: "Market data provider unavailable"
+                error: "Market data provider unavailable",
+                provider_status: response.status
             });
         }
-
-        const data = await response.json();
 
         return res.json({
             success: true,
@@ -493,7 +414,7 @@ app.get("/api/market", async (req, res) => {
 
     } catch (error) {
         console.error(
-            "[MARKET] Error:",
+            "Market API error:",
             error
         );
 
@@ -517,22 +438,22 @@ app.get("/api/market/history", async (req, res) => {
             });
         }
 
-        const {
-            crop,
-            state,
-            district,
-            limit = 100
-        } = req.query;
+        const crop = req.query.crop;
+        const state = req.query.state;
+        const district = req.query.district;
 
-        const safeLimit = Math.min(
-            Math.max(Number(limit) || 100, 1),
-            100
-        );
+        let limit = Number(req.query.limit || 100);
+
+        if (!Number.isFinite(limit)) {
+            limit = 100;
+        }
+
+        limit = Math.min(Math.max(limit, 1), 100);
 
         const params = new URLSearchParams({
             "api-key": DATA_GOV_API_KEY,
             format: "json",
-            limit: String(safeLimit)
+            limit: String(limit)
         });
 
         if (crop) {
@@ -556,9 +477,14 @@ app.get("/api/market/history", async (req, res) => {
             );
         }
 
-        const response = await fetch(
-            `${DATA_GOV_RESOURCE}?${params.toString()}`
-        );
+        const url =
+            "https://api.data.gov.in/resource/" +
+            "9ef84268-d588-465a-a308-a864a43d0070?" +
+            params.toString();
+
+        const response = await fetch(url);
+
+        const data = await response.json();
 
         if (!response.ok) {
             return res.status(502).json({
@@ -567,17 +493,15 @@ app.get("/api/market/history", async (req, res) => {
             });
         }
 
-        const data = await response.json();
-
         return res.json({
             success: true,
             source: "data.gov.in",
-            records: data.records ?? []
+            records: data.records || []
         });
 
     } catch (error) {
         console.error(
-            "[MARKET HISTORY] Error:",
+            "Market history error:",
             error
         );
 
@@ -628,9 +552,14 @@ app.get("/api/market/stats", async (req, res) => {
             );
         }
 
-        const response = await fetch(
-            `${DATA_GOV_RESOURCE}?${params.toString()}`
-        );
+        const url =
+            "https://api.data.gov.in/resource/" +
+            "9ef84268-d588-465a-a308-a864a43d0070?" +
+            params.toString();
+
+        const response = await fetch(url);
+
+        const data = await response.json();
 
         if (!response.ok) {
             return res.status(502).json({
@@ -638,8 +567,6 @@ app.get("/api/market/stats", async (req, res) => {
                 error: "Market statistics provider unavailable"
             });
         }
-
-        const data = await response.json();
 
         const records = data.records || [];
 
@@ -650,16 +577,8 @@ app.get("/api/market/stats", async (req, res) => {
                     record.modal_price ??
                     record.ModalPrice;
 
-                if (
-                    value === undefined ||
-                    value === null
-                ) {
-                    return null;
-                }
-
                 const number = Number(
-                    String(value)
-                        .replace(/,/g, "")
+                    String(value ?? "").replace(/,/g, "")
                 );
 
                 return Number.isFinite(number)
@@ -678,11 +597,8 @@ app.get("/api/market/stats", async (req, res) => {
             });
         }
 
-        const min =
-            Math.min(...prices);
-
-        const max =
-            Math.max(...prices);
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
 
         const average =
             prices.reduce(
@@ -695,13 +611,14 @@ app.get("/api/market/stats", async (req, res) => {
             count: prices.length,
             min,
             max,
-            average:
-                Number(average.toFixed(2))
+            average: Number(
+                average.toFixed(2)
+            )
         });
 
     } catch (error) {
         console.error(
-            "[MARKET STATS] Error:",
+            "Market stats error:",
             error
         );
 
@@ -718,11 +635,9 @@ app.get("/api/market/stats", async (req, res) => {
 
 app.get("/api/predict-price", async (req, res) => {
     try {
-        const {
-            crop,
-            state,
-            district
-        } = req.query;
+        const crop = req.query.crop;
+        const state = req.query.state;
+        const district = req.query.district;
 
         if (!crop) {
             return res.status(400).json({
@@ -743,8 +658,7 @@ app.get("/api/predict-price", async (req, res) => {
             format: "json",
             limit: "100",
 
-            "filters[Commodity]":
-                crop
+            "filters[Commodity]": crop
         });
 
         if (state) {
@@ -761,9 +675,14 @@ app.get("/api/predict-price", async (req, res) => {
             );
         }
 
-        const response = await fetch(
-            `${DATA_GOV_RESOURCE}?${params.toString()}`
-        );
+        const url =
+            "https://api.data.gov.in/resource/" +
+            "9ef84268-d588-465a-a308-a864a43d0070?" +
+            params.toString();
+
+        const response = await fetch(url);
+
+        const data = await response.json();
 
         if (!response.ok) {
             return res.status(502).json({
@@ -772,10 +691,7 @@ app.get("/api/predict-price", async (req, res) => {
             });
         }
 
-        const data = await response.json();
-
-        const records =
-            data.records || [];
+        const records = data.records || [];
 
         const prices = records
             .map(record => {
@@ -784,11 +700,9 @@ app.get("/api/predict-price", async (req, res) => {
                     record.modal_price ??
                     record.ModalPrice;
 
-                const number =
-                    Number(
-                        String(value ?? "")
-                            .replace(/,/g, "")
-                    );
+                const number = Number(
+                    String(value ?? "").replace(/,/g, "")
+                );
 
                 return Number.isFinite(number)
                     ? number
@@ -811,23 +725,26 @@ app.get("/api/predict-price", async (req, res) => {
                 0
             ) / prices.length;
 
-        const predictedPrice =
-            Number(average.toFixed(2));
-
         return res.json({
             success: true,
             crop,
-            prediction: predictedPrice,
-            current_average:
-                Number(average.toFixed(2)),
+
+            prediction: Number(
+                average.toFixed(2)
+            ),
+
+            current_average: Number(
+                average.toFixed(2)
+            ),
+
             samples: prices.length,
-            method:
-                "historical-average-baseline"
+
+            method: "historical-average-baseline"
         });
 
     } catch (error) {
         console.error(
-            "[PRICE PREDICTION] Error:",
+            "Price prediction error:",
             error
         );
 
@@ -851,7 +768,7 @@ app.post("/api/crop-health", async (req, res) => {
             });
         }
 
-        const { image } = req.body;
+        const image = req.body.image;
 
         if (!image) {
             return res.status(400).json({
@@ -862,13 +779,9 @@ app.post("/api/crop-health", async (req, res) => {
 
         let base64Image = String(image);
 
-        // Remove data URL prefix if frontend sends one.
-        //
-        // Example:
-        // data:image/jpeg;base64,/9j/4AAQ...
-        //
-        // becomes:
-        // /9j/4AAQ...
+        // Support:
+        // data:image/jpeg;base64,...
+        // data:image/png;base64,...
 
         if (base64Image.includes(",")) {
             base64Image =
@@ -876,122 +789,93 @@ app.post("/api/crop-health", async (req, res) => {
         }
 
         const response = await fetch(
-            PLANT_ID_URL,
+            "https://plant.id/api/v3/identification",
             {
                 method: "POST",
 
                 headers: {
-                    "Api-Key":
-                        PLANT_ID_API_KEY,
-
-                    "Content-Type":
-                        "application/json"
+                    "Api-Key": PLANT_ID_API_KEY,
+                    "Content-Type": "application/json"
                 },
 
                 body: JSON.stringify({
-                    images: [
-                        base64Image
-                    ],
-
+                    images: [base64Image],
                     health: "all",
-
                     similar_images: true,
-
                     language: "en"
                 })
             }
         );
 
-        const data =
-            await response.json();
+        const data = await response.json();
 
         if (!response.ok) {
             console.error(
-                "[PLANT.ID] Error:",
+                "Plant.id error:",
                 response.status,
                 data
             );
 
             return res.status(502).json({
                 success: false,
-                error:
-                    "Plant health service unavailable",
-                details: data
+                error: "Plant.id service unavailable",
+                provider_status: response.status,
+                provider_error: data
             });
         }
 
         return res.json({
             success: true,
+            source: "Plant.id",
             data
         });
 
     } catch (error) {
         console.error(
-            "[PLANT.ID] Error:",
+            "Plant.id error:",
             error
         );
 
         return res.status(500).json({
             success: false,
-            error:
-                "Failed to analyze crop health"
+            error: "Failed to analyze crop health"
         });
     }
 });
 
 // ============================================================
-// OPENAI AI
+// OPENAI
 // ============================================================
 
 app.post("/api/ai", async (req, res) => {
     try {
-        const {
-            question,
-            message,
-            prompt
-        } = req.body;
+        const question =
+            req.body.question ||
+            req.body.message ||
+            req.body.prompt;
 
-        const userQuestion =
-            question ||
-            message ||
-            prompt;
-
-        if (
-            !userQuestion ||
-            !String(userQuestion).trim()
-        ) {
+        if (!question || !String(question).trim()) {
             return res.status(400).json({
                 success: false,
                 error: "Question is required"
             });
         }
 
-        // --------------------------------------------------------
-        // OPENAI KEY NOT CONFIGURED
-        // --------------------------------------------------------
-
         if (!OPENAI_API_KEY) {
             return res.status(503).json({
                 success: false,
                 available: false,
-                error:
-                    "OPENAI_API_KEY is not configured"
+                error: "OPENAI_API_KEY is not configured"
             });
         }
 
-        // --------------------------------------------------------
-        // OPENAI REQUEST
-        // --------------------------------------------------------
-
         const response = await fetch(
-            OPENAI_URL,
+            "https://api.openai.com/v1/responses",
             {
                 method: "POST",
 
                 headers: {
-                    "Content-Type":
-                        "application/json",
-
+                    "Content-Type": "application/json",
                     "Authorization":
                         `Bearer ${OPENAI_API_KEY}`
                 },
@@ -1002,28 +886,20 @@ app.post("/api/ai", async (req, res) => {
                     instructions:
                         "You are SmartAgri AI, an agricultural " +
                         "market intelligence assistant. " +
-                        "Provide concise, practical and safe " +
+                        "Give concise, practical and safe " +
                         "agricultural guidance. " +
-                        "Do not invent market prices, weather " +
-                        "data, crop disease results, or other " +
-                        "real-world data.",
+                        "Do not invent weather or market data.",
 
-                    input:
-                        String(userQuestion)
+                    input: String(question)
                 })
             }
         );
 
-        const data =
-            await response.json();
-
-        // --------------------------------------------------------
-        // OPENAI ERROR
-        // --------------------------------------------------------
+        const data = await response.json();
 
         if (!response.ok) {
             console.error(
-                "[OPENAI] Error:",
+                "OpenAI error:",
                 response.status,
                 data
             );
@@ -1031,43 +907,43 @@ app.post("/api/ai", async (req, res) => {
             return res.status(502).json({
                 success: false,
                 available: false,
-                error:
-                    "OpenAI service unavailable",
-                details: data
+                error: "OpenAI service returned an error",
+                provider_status: response.status,
+                provider_error: data
             });
         }
 
-        // --------------------------------------------------------
-        // EXTRACT RESPONSE
-        // --------------------------------------------------------
+        let answer = "";
 
-        let answer =
-            data.output_text;
-
-        if (
-            !answer &&
-            Array.isArray(data.output)
-        ) {
-            answer =
-                data.output
-                    .flatMap(
-                        item =>
-                            item.content || []
-                    )
-                    .map(
-                        item =>
-                            item.text || ""
-                    )
-                    .join("")
-                    .trim();
+        // Preferred Responses API output
+        if (typeof data.output_text === "string") {
+            answer = data.output_text;
         }
+
+        // Additional safe extraction
+        if (!answer && Array.isArray(data.output)) {
+            for (const item of data.output) {
+                if (!Array.isArray(item.content)) {
+                    continue;
+                }
+
+                for (const content of item.content) {
+                    if (
+                        typeof content.text === "string"
+                    ) {
+                        answer += content.text;
+                    }
+                }
+            }
+        }
+
+        answer = answer.trim();
 
         if (!answer) {
             return res.status(502).json({
                 success: false,
                 available: true,
-                error:
-                    "OpenAI returned no text response"
+                error: "OpenAI returned no text response"
             });
         }
 
@@ -1079,15 +955,14 @@ app.post("/api/ai", async (req, res) => {
 
     } catch (error) {
         console.error(
-            "[OPENAI] Request error:",
+            "OpenAI request error:",
             error
         );
 
         return res.status(500).json({
             success: false,
             available: false,
-            error:
-                "Failed to communicate with OpenAI"
+            error: "Failed to communicate with OpenAI"
         });
     }
 });
@@ -1107,71 +982,84 @@ app.use(
 // SPA FALLBACK
 // ============================================================
 
-app.get("*", (req, res) => {
+// Important: only send index.html for browser navigation
+// requests, not API requests.
+
+app.get(/^(?!\/api\/).*/, (req, res) => {
     res.sendFile(
-        path.join(
-            publicPath,
-            "index.html"
-        )
+        path.join(publicPath, "index.html")
     );
+});
+
+// ============================================================
+// 404 API HANDLER
+// ============================================================
+
+app.use("/api", (req, res) => {
+    res.status(404).json({
+        success: false,
+        error: "API endpoint not found"
+    });
+});
+
+// ============================================================
+// GLOBAL ERROR HANDLER
+// ============================================================
+
+app.use((error, req, res, next) => {
+    console.error(
+        "Unhandled server error:",
+        error
+    );
+
+    res.status(500).json({
+        success: false,
+        error: "Internal server error"
+    });
 });
 
 // ============================================================
 // START SERVER
 // ============================================================
 
-app.listen(
-    PORT,
-    () => {
-        console.log("");
-        console.log(
-            "=============================================="
-        );
-        console.log(
-            " Smart Agriculture Market Intelligence"
-        );
-        console.log(
-            "=============================================="
-        );
-
-        console.log(
-            ` Server running on port ${PORT}`
-        );
-
-        console.log("");
-
-        console.log(
-            ` Weather:     Open-Meteo`
-        );
-
-        console.log(
-            ` Market:      ${
-                DATA_GOV_API_KEY
-                    ? "configured"
-                    : "NOT configured"
-            }`
-        );
-
-        console.log(
-            ` Crop Health: ${
-                PLANT_ID_API_KEY
-                    ? "configured"
-                    : "NOT configured"
-            }`
-        );
-
-        console.log(
-            ` OpenAI:      ${
-                OPENAI_API_KEY
-                    ? "configured"
-                    : "NOT configured"
-            }`
-        );
-
-        console.log("");
-
-        console.log(
-            "=============================================="
-        );
-    }
-);
+app.listen(PORT, "0.0.0.0", () => {
+    console.log("");
+    console.log("================================================");
+    console.log(" SmartAgri Production Server");
+    console.log("================================================");
+    console.log(
+        ` Server running on port ${PORT}`
+    );
+    console.log("");
+    console.log(" Services:");
+    console.log(
+        "  Weather:     Open-Meteo"
+    );
+    console.log(
+        `  Market:      ${
+            DATA_GOV_API_KEY
+                ? "CONFIGURED"
+                : "NOT CONFIGURED"
+        }`
+    );
+    console.log(
+        `  Crop Health: ${
+            PLANT_ID_API_KEY
+                ? "CONFIGURED"
+                : "NOT CONFIGURED"
+        }`
+    );
+    console.log(
+        `  OpenAI:      ${
+            OPENAI_API_KEY
+                ? "CONFIGURED"
+                : "NOT CONFIGURED"
+        }`
+    );
+    console.log("");
+    console.log(
+        " Open-Meteo API key: NOT REQUIRED"
+    );
+    console.log("================================================");
+    console.log("");
+});
