@@ -1,228 +1,335 @@
 /* =========================================================
-   SMARTAGRI BACKEND SERVER
-   Node.js + Express
+   SMARTAGRI BACKEND
+   Production-ready Express server
 ========================================================= */
+
+"use strict";
+
+require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const multer = require("multer");
+
+
+/* =========================================================
+   CONFIGURATION
+========================================================= */
 
 const app = express();
 
-const PORT = 5000;
+const PORT = Number(process.env.PORT) || 5000;
+
+const NODE_ENV =
+    process.env.NODE_ENV || "development";
+
+const FRONTEND_URL =
+    process.env.FRONTEND_URL || "*";
 
 
 /* =========================================================
-   MIDDLEWARE
+   SECURITY
 ========================================================= */
 
-app.use(cors());
+app.disable("x-powered-by");
 
-app.use(express.json());
-
-app.use(express.urlencoded({
-    extended: true
-}));
+app.use(
+    helmet()
+);
 
 
 /* =========================================================
-   IMAGE UPLOAD
+   CORS
 ========================================================= */
 
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 10 * 1024 * 1024
+const allowedOrigins =
+    FRONTEND_URL === "*"
+        ? true
+        : FRONTEND_URL
+            .split(",")
+            .map(origin => origin.trim())
+            .filter(Boolean);
+
+
+app.use(
+    cors({
+        origin: allowedOrigins,
+        methods: [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS"
+        ],
+        allowedHeaders: [
+            "Content-Type",
+            "Authorization"
+        ],
+        credentials: true
+    })
+);
+
+
+/* =========================================================
+   BODY PARSING
+========================================================= */
+
+app.use(
+    express.json({
+        limit: "1mb"
+    })
+);
+
+
+app.use(
+    express.urlencoded({
+        extended: true,
+        limit: "1mb"
+    })
+);
+
+
+/* =========================================================
+   RATE LIMITING
+========================================================= */
+
+const generalLimiter =
+    rateLimit({
+
+        windowMs:
+            15 * 60 * 1000,
+
+        max:
+            300,
+
+        standardHeaders:
+            true,
+
+        legacyHeaders:
+            false,
+
+        message: {
+            error:
+                "Too many requests. Please try again later."
+        }
+
+    });
+
+
+app.use(
+    "/api",
+    generalLimiter
+);
+
+
+/* =========================================================
+   FILE UPLOAD CONFIGURATION
+========================================================= */
+
+const upload =
+    multer({
+
+        storage:
+            multer.memoryStorage(),
+
+        limits: {
+
+            fileSize:
+                10 * 1024 * 1024,
+
+            files:
+                1
+
+        },
+
+        fileFilter:
+            (req, file, callback) => {
+
+                if (
+                    file.mimetype &&
+                    file.mimetype.startsWith("image/")
+                ) {
+
+                    callback(
+                        null,
+                        true
+                    );
+
+                } else {
+
+                    callback(
+                        new Error(
+                            "Only image files are allowed."
+                        )
+                    );
+
+                }
+
+            }
+
+    });
+
+
+/* =========================================================
+   REQUEST LOGGING
+========================================================= */
+
+app.use(
+    (req, res, next) => {
+
+        const startedAt =
+            Date.now();
+
+
+        res.on(
+            "finish",
+            () => {
+
+                const duration =
+                    Date.now() -
+                    startedAt;
+
+
+                console.log(
+                    `${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`
+                );
+
+            }
+        );
+
+
+        next();
+
     }
-});
+);
 
 
 /* =========================================================
    HEALTH CHECK
 ========================================================= */
 
-app.get("/", (req, res) => {
+app.get(
+    "/",
+    (req, res) => {
 
-    res.json({
-        status: "online",
-        message: "SmartAgri backend is running",
-        version: "1.0.0"
-    });
+        res.status(200).json({
 
-});
+            success:
+                true,
 
+            service:
+                "SmartAgri Backend",
 
-/* =========================================================
-   WEATHER API
-========================================================= */
+            status:
+                "online",
 
-app.get("/api/weather", async (req, res) => {
+            environment:
+                NODE_ENV,
 
-    try {
-
-        /*
-         * TEMPORARY DEMO DATA
-         *
-         * We will connect this to a real
-         * weather API later.
-         */
-
-        res.json({
-
-            temperature: 28,
-
-            humidity: 70,
-
-            wind_speed: 12,
-
-            rain_chance: 30
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Weather error:",
-            error
-        );
-
-        res.status(500).json({
-
-            error: "Weather data unavailable"
+            timestamp:
+                new Date().toISOString()
 
         });
 
     }
+);
 
-});
+
+app.get(
+    "/health",
+    (req, res) => {
+
+        res.status(200).json({
+
+            success:
+                true,
+
+            status:
+                "healthy",
+
+            timestamp:
+                new Date().toISOString()
+
+        });
+
+    }
+);
 
 
 /* =========================================================
-   MARKET PRICES API
+   API STATUS
 ========================================================= */
 
-app.get("/api/market-prices", async (req, res) => {
+app.get(
+    "/api",
+    (req, res) => {
 
-    try {
+        res.status(200).json({
 
-        const commodity =
-            req.query.commodity || "Onion";
+            success:
+                true,
 
+            service:
+                "SmartAgri API",
 
-        /*
-         * TEMPORARY DEMO DATA
-         *
-         * This will later be replaced with
-         * real government market data.
-         */
+            version:
+                "1.0.0",
 
-        const records = [
+            endpoints: {
 
-            {
-                market: "Kopargaon",
-                commodity: commodity,
-                modal_price: 2400,
-                date: "2026-08-26"
-            },
+                weather:
+                    "/api/weather",
 
-            {
-                market: "Yeola",
-                commodity: commodity,
-                modal_price: 2600,
-                date: "2026-08-26"
-            },
+                marketPrices:
+                    "/api/market-prices",
 
-            {
-                market: "Shirdi",
-                commodity: commodity,
-                modal_price: 2500,
-                date: "2026-08-26"
+                cropHealth:
+                    "/api/crop-health",
+
+                ai:
+                    "/api/ai"
+
             }
 
-        ];
-
-
-        res.json({
-
-            records: records
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Market API error:",
-            error
-        );
-
-        res.status(500).json({
-
-            error: "Market data unavailable"
-
         });
 
     }
-
-});
+);
 
 
 /* =========================================================
-   CROP HEALTH API
+   WEATHER
 ========================================================= */
 
-app.post(
-    "/api/crop-health",
-    upload.single("image"),
-    async (req, res) => {
+app.get(
+    "/api/weather",
+    async (req, res, next) => {
 
         try {
 
-            if (!req.file) {
-
-                return res.status(400).json({
-
-                    error: "No image uploaded"
-
-                });
-
-            }
-
-
-            console.log(
-                "Crop image received:",
-                req.file.originalname
-            );
-
-
             /*
-             * TEMPORARY DEMO RESPONSE
+             * Weather service will be connected here.
              *
-             * Later we will connect an actual
-             * crop disease detection model/API.
+             * IMPORTANT:
+             * Do not return fabricated weather data.
              */
 
-            res.json({
+            return res.status(503).json({
 
-                diagnosis:
-                    "Demo analysis: crop image received successfully",
+                success:
+                    false,
 
-                confidence: 0.85
+                error:
+                    "Weather service is not configured."
 
             });
 
         } catch (error) {
 
-            console.error(
-                "Crop health error:",
-                error
-            );
-
-            res.status(500).json({
-
-                error:
-                    "Crop health analysis unavailable"
-
-            });
+            next(error);
 
         }
 
@@ -231,137 +338,413 @@ app.post(
 
 
 /* =========================================================
-   AI ASSISTANT API
+   MARKET PRICES
 ========================================================= */
 
-app.post("/api/ai", async (req, res) => {
+app.get(
+    "/api/market-prices",
+    async (req, res, next) => {
 
-    try {
+        try {
 
-        const {
-            question,
-            language,
-            farmer
-        } = req.body;
+            const commodity =
+                typeof req.query.commodity === "string"
+                    ? req.query.commodity.trim()
+                    : "";
 
 
-        if (!question) {
+            const market =
+                typeof req.query.market === "string"
+                    ? req.query.market.trim()
+                    : "";
 
-            return res.status(400).json({
 
-                error: "Question is required"
+            const state =
+                typeof req.query.state === "string"
+                    ? req.query.state.trim()
+                    : "Maharashtra";
+
+
+            /*
+             * We deliberately do NOT return fake
+             * market prices.
+             *
+             * The market service will be connected
+             * after the government data source is
+             * configured.
+             */
+
+            return res.status(503).json({
+
+                success:
+                    false,
+
+                error:
+                    "Market data service is not configured.",
+
+                filters: {
+
+                    commodity:
+                        commodity || null,
+
+                    market:
+                        market || null,
+
+                    state
+
+                }
 
             });
 
+        } catch (error) {
+
+            next(error);
+
         }
 
-
-        console.log(
-            "AI Question:",
-            question
-        );
-
-        console.log(
-            "Language:",
-            language
-        );
+    }
+);
 
 
-        /*
-         * TEMPORARY RESPONSE
-         *
-         * Later we will connect an actual
-         * AI API here.
-         */
+/* =========================================================
+   CROP HEALTH
+========================================================= */
 
-        res.json({
+app.post(
+    "/api/crop-health",
+    upload.single("image"),
+    async (req, res, next) => {
 
-            answer:
-                `SmartAgri AI received your question: ${question}`
+        try {
 
-        });
+            if (!req.file) {
 
-    } catch (error) {
+                return res.status(400).json({
 
-        console.error(
-            "AI error:",
-            error
-        );
+                    success:
+                        false,
 
-        res.status(500).json({
+                    error:
+                        "Crop image is required."
 
-            error:
-                "AI service unavailable"
+                });
 
-        });
+            }
+
+
+            /*
+             * The actual crop-health AI service
+             * will be connected here.
+             *
+             * The uploaded file currently exists
+             * only in server memory.
+             */
+
+
+            return res.status(503).json({
+
+                success:
+                    false,
+
+                error:
+                    "Crop health AI service is not configured."
+
+            });
+
+        } catch (error) {
+
+            next(error);
+
+        }
 
     }
+);
 
-});
+
+/* =========================================================
+   AI ASSISTANT
+========================================================= */
+
+app.post(
+    "/api/ai",
+    async (req, res, next) => {
+
+        try {
+
+            const {
+                question,
+                language,
+                farmer
+            } = req.body;
+
+
+            if (
+                typeof question !== "string" ||
+                !question.trim()
+            ) {
+
+                return res.status(400).json({
+
+                    success:
+                        false,
+
+                    error:
+                        "Question is required."
+
+                });
+
+            }
+
+
+            const cleanQuestion =
+                question.trim();
+
+
+            /*
+             * The actual AI provider will be
+             * connected here.
+             *
+             * No fabricated AI response is returned.
+             */
+
+
+            return res.status(503).json({
+
+                success:
+                    false,
+
+                error:
+                    "AI service is not configured."
+
+            });
+
+        } catch (error) {
+
+            next(error);
+
+        }
+
+    }
+);
 
 
 /* =========================================================
    404 HANDLER
 ========================================================= */
 
-app.use((req, res) => {
+app.use(
+    (req, res) => {
 
-    res.status(404).json({
+        res.status(404).json({
 
-        error: "API endpoint not found",
+            success:
+                false,
 
-        path: req.originalUrl
+            error:
+                "Endpoint not found.",
 
-    });
+            path:
+                req.originalUrl
 
-});
+        });
+
+    }
+);
 
 
 /* =========================================================
-   ERROR HANDLER
+   GLOBAL ERROR HANDLER
 ========================================================= */
 
-app.use((error, req, res, next) => {
+app.use(
+    (error, req, res, next) => {
 
-    console.error(
-        "Server error:",
-        error
+        console.error(
+            "Server error:",
+            error
+        );
+
+
+        /*
+         * Multer errors
+         */
+
+        if (
+            error instanceof multer.MulterError
+        ) {
+
+            if (
+                error.code ===
+                "LIMIT_FILE_SIZE"
+            ) {
+
+                return res.status(400).json({
+
+                    success:
+                        false,
+
+                    error:
+                        "Image size must not exceed 10 MB."
+
+                });
+
+            }
+
+
+            return res.status(400).json({
+
+                success:
+                    false,
+
+                error:
+                    error.message
+
+            });
+
+        }
+
+
+        /*
+         * File validation errors
+         */
+
+        if (
+            error.message ===
+            "Only image files are allowed."
+        ) {
+
+            return res.status(400).json({
+
+                success:
+                    false,
+
+                error:
+                    error.message
+
+            });
+
+        }
+
+
+        /*
+         * General server error
+         */
+
+        const statusCode =
+            Number(error.statusCode) ||
+            500;
+
+
+        const response = {
+
+            success:
+                false,
+
+            error:
+                statusCode === 500
+                    ? "Internal server error."
+                    : error.message
+
+        };
+
+
+        /*
+         * Include details only in development.
+         */
+
+        if (
+            NODE_ENV ===
+            "development"
+        ) {
+
+            response.details =
+                error.message;
+
+        }
+
+
+        res.status(
+            statusCode
+        ).json(response);
+
+    }
+);
+
+
+/* =========================================================
+   SERVER STARTUP
+========================================================= */
+
+const server =
+    app.listen(
+        PORT,
+        "0.0.0.0",
+        () => {
+
+            console.log("");
+            console.log(
+                "=========================================="
+            );
+            console.log(
+                "        SMARTAGRI BACKEND SERVER"
+            );
+            console.log(
+                "=========================================="
+            );
+            console.log(
+                `Environment : ${NODE_ENV}`
+            );
+            console.log(
+                `Port        : ${PORT}`
+            );
+            console.log(
+                `Frontend    : ${FRONTEND_URL}`
+            );
+            console.log(
+                `Health      : http://localhost:${PORT}/health`
+            );
+            console.log(
+                "=========================================="
+            );
+            console.log("");
+
+        }
     );
 
 
-    res.status(500).json({
-
-        error: "Internal server error"
-
-    });
-
-});
-
-
 /* =========================================================
-   START SERVER
+   GRACEFUL SHUTDOWN
 ========================================================= */
 
-app.listen(PORT, "127.0.0.1", () => {
+function shutdown(signal) {
 
-    console.log("");
-    console.log("========================================");
-    console.log("       SMARTAGRI BACKEND SERVER");
-    console.log("========================================");
-    console.log("");
     console.log(
-        `Server running at http://127.0.0.1:${PORT}`
+        `${signal} received. Shutting down...`
     );
-    console.log("");
-    console.log("Available APIs:");
-    console.log("");
-    console.log("GET  /");
-    console.log("GET  /api/weather");
-    console.log("GET  /api/market-prices");
-    console.log("POST /api/crop-health");
-    console.log("POST /api/ai");
-    console.log("");
-    console.log("========================================");
-    console.log("");
 
-});
+
+    server.close(
+        () => {
+
+            console.log(
+                "HTTP server closed."
+            );
+
+            process.exit(0);
+
+        }
+    );
+
+}
+
+
+process.on(
+    "SIGTERM",
+    () => shutdown("SIGTERM")
+);
+
+
+process.on(
+    "SIGINT",
+    () => shutdown("SIGINT")
+);
