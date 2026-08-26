@@ -4122,88 +4122,355 @@ function setupCropInformation() {
 
 /* =========================================================
    WEATHER
+   Open-Meteo API
+   Location: Kopargaon, Maharashtra
    ========================================================= */
 
 function setupWeather() {
 
-    const button =
-        $("refreshWeatherBtn");
-
+    const button = $("refreshWeatherBtn");
 
     if (button) {
-
         button.addEventListener(
             "click",
             updateWeatherUI
         );
-
     }
 
+    // Load weather automatically
+    updateWeatherUI();
 }
 
 
-function updateWeatherUI() {
+async function updateWeatherUI() {
 
-    const loading =
-        $("weatherLoading");
+    const loading = $("weatherLoading");
+    const empty = $("weatherEmptyState");
+    const data = $("weatherData");
+    const error = $("weatherError");
 
-    const empty =
-        $("weatherEmptyState");
+    const temperature = $("weatherTemperature");
+    const humidity = $("weatherHumidity");
+    const wind = $("weatherWind");
+    const rain = $("weatherRain");
 
-    const data =
-        $("weatherData");
 
-    const error =
-        $("weatherError");
-
+    /* -----------------------------------------
+       Reset UI
+       ----------------------------------------- */
 
     hide(error);
     hide(data);
-    show(empty);
+    hide(empty);
 
+    if (loading) {
+        show(loading);
+    }
+
+
+    /* -----------------------------------------
+       Check internet connection
+       ----------------------------------------- */
 
     if (!navigator.onLine) {
 
+        hide(loading);
+
         if (error) {
 
-            error.textContent =
-                currentLanguage === "hi"
-                    ? "आप ऑफलाइन हैं। मौसम डेटा प्राप्त नहीं किया जा सकता।"
-                    : currentLanguage === "mr"
-                        ? "तुम्ही ऑफलाइन आहात. हवामान डेटा मिळवता येत नाही."
-                        : "You are offline. Weather data cannot be retrieved.";
+            if (currentLanguage === "hi") {
+
+                error.textContent =
+                    "आप ऑफलाइन हैं। मौसम डेटा प्राप्त नहीं किया जा सकता।";
+
+            } else if (currentLanguage === "mr") {
+
+                error.textContent =
+                    "तुम्ही ऑफलाइन आहात. हवामान डेटा मिळवता येत नाही.";
+
+            } else {
+
+                error.textContent =
+                    "You are offline. Weather data cannot be retrieved.";
+
+            }
+
+            show(error);
+        }
+
+        show(empty);
+
+        return;
+    }
+
+
+    /* -----------------------------------------
+       Kopargaon coordinates
+       ----------------------------------------- */
+
+    const latitude = 19.8823;
+    const longitude = 74.4762;
+
+
+    /* -----------------------------------------
+       Open-Meteo API
+       ----------------------------------------- */
+
+    const url =
+        "https://api.open-meteo.com/v1/forecast" +
+        "?latitude=" + latitude +
+        "&longitude=" + longitude +
+        "&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation" +
+        "&hourly=precipitation_probability" +
+        "&timezone=Asia%2FKolkata";
+
+
+    try {
+
+        const response = await fetch(url);
+
+
+        /* -----------------------------------------
+           Check API response
+           ----------------------------------------- */
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Weather API request failed: " +
+                response.status
+            );
+
+        }
+
+
+        const weather = await response.json();
+
+
+        console.log(
+            "SmartAgri Weather Data:",
+            weather
+        );
+
+
+        /* -----------------------------------------
+           Validate response
+           ----------------------------------------- */
+
+        if (
+            !weather.current ||
+            !weather.hourly
+        ) {
+
+            throw new Error(
+                "Invalid weather data received."
+            );
+
+        }
+
+
+        /* -----------------------------------------
+           TEMPERATURE
+           ----------------------------------------- */
+
+        if (
+            temperature &&
+            typeof weather.current.temperature_2m === "number"
+        ) {
+
+            temperature.textContent =
+                Math.round(
+                    weather.current.temperature_2m
+                ) + "°C";
+
+        }
+
+
+        /* -----------------------------------------
+           HUMIDITY
+           ----------------------------------------- */
+
+        if (
+            humidity &&
+            typeof weather.current.relative_humidity_2m === "number"
+        ) {
+
+            humidity.textContent =
+                Math.round(
+                    weather.current.relative_humidity_2m
+                ) + "%";
+
+        }
+
+
+        /* -----------------------------------------
+           WIND SPEED
+           ----------------------------------------- */
+
+        if (
+            wind &&
+            typeof weather.current.wind_speed_10m === "number"
+        ) {
+
+            wind.textContent =
+                Math.round(
+                    weather.current.wind_speed_10m
+                ) + " km/h";
+
+        }
+
+
+        /* -----------------------------------------
+           RAIN PROBABILITY
+           ----------------------------------------- */
+
+        let rainChance = null;
+
+        const hourlyTimes =
+            weather.hourly.time || [];
+
+        const rainProbabilities =
+            weather.hourly.precipitation_probability || [];
+
+        const currentTime =
+            weather.current.time;
+
+
+        if (
+            currentTime &&
+            hourlyTimes.length > 0 &&
+            rainProbabilities.length > 0
+        ) {
+
+            let closestIndex = 0;
+
+            let smallestDifference =
+                Infinity;
+
+            const currentTimestamp =
+                new Date(currentTime).getTime();
+
+
+            hourlyTimes.forEach(
+                function (time, index) {
+
+                    if (
+                        index >=
+                        rainProbabilities.length
+                    ) {
+                        return;
+                    }
+
+
+                    const timestamp =
+                        new Date(time).getTime();
+
+
+                    const difference =
+                        Math.abs(
+                            timestamp -
+                            currentTimestamp
+                        );
+
+
+                    if (
+                        difference <
+                        smallestDifference
+                    ) {
+
+                        smallestDifference =
+                            difference;
+
+                        closestIndex =
+                            index;
+
+                    }
+
+                }
+            );
+
+
+            rainChance =
+                rainProbabilities[
+                    closestIndex
+                ];
+
+        }
+
+
+        if (
+            rain &&
+            typeof rainChance === "number"
+        ) {
+
+            rain.textContent =
+                Math.round(
+                    rainChance
+                ) + "%";
+
+        } else if (rain) {
+
+            rain.textContent = "—";
+
+        }
+
+
+        /* -----------------------------------------
+           SHOW WEATHER DATA
+           ----------------------------------------- */
+
+        hide(loading);
+        hide(empty);
+        hide(error);
+
+        show(data);
+
+
+        console.log(
+            "SmartAgri weather loaded successfully."
+        );
+
+
+    } catch (err) {
+
+        console.error(
+            "SmartAgri Weather Error:",
+            err
+        );
+
+
+        hide(loading);
+        hide(data);
+
+        show(empty);
+
+
+        if (error) {
+
+            if (currentLanguage === "hi") {
+
+                error.textContent =
+                    "मौसम डेटा लोड नहीं हो सका। कृपया फिर से प्रयास करें।";
+
+            } else if (currentLanguage === "mr") {
+
+                error.textContent =
+                    "हवामान डेटा लोड करता आला नाही. कृपया पुन्हा प्रयत्न करा.";
+
+            } else {
+
+                error.textContent =
+                    "Unable to load weather data. Please try again.";
+
+            }
 
             show(error);
 
         }
 
-        return;
-
     }
 
-
-    show(loading);
-
-
-    setTimeout(
-        function () {
-
-            hide(loading);
-
-            /*
-             * No weather API is connected yet.
-             * Therefore we deliberately keep the
-             * verified-data empty state.
-             */
-
-            show(empty);
-
-        },
-        500
-    );
-
 }
-
 
 /* =========================================================
    MARKET SECTION
