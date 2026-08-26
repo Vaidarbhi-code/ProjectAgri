@@ -1,7 +1,31 @@
+# Environment variables
 .env
+
+# Python virtual environment
 .venv/
+venv/
+
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Node.js dependencies
+node_modules/
+
+# IDE/editor files
 .vscode/
 .idea/
-node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
