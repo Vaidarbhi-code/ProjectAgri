@@ -1,452 +1,601 @@
+// server.js
 require("dotenv").config();
 
 const express = require("express");
-const cors = require("cors");
-const OpenAI = require("openai");
+const path = require("path");
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-const PORT = process.env.PORT || 3000;
+// Node 18+ has built-in fetch.
+// No node-fetch package is required.
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // ============================================================
-// ENVIRONMENT VARIABLES
+// ENVIRONMENT
 // ============================================================
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const PLANT_ID_API_KEY = process.env.PLANT_ID_API_KEY;
 const DATA_GOV_API_KEY = process.env.DATA_GOV_API_KEY;
-
-// ============================================================
-// CONFIGURATION
-// ============================================================
-
-const DATA_GOV_RESOURCE =
-    "9ef84268-d588-465a-a308-a864a43d0070";
-
-const PLANT_ID_URL =
-    "https://plant.id/api/v3/identification";
-
-const DATA_GOV_URL =
-    `https://api.data.gov.in/resource/${DATA_GOV_RESOURCE}`;
-
-// ============================================================
-// OPENAI CLIENT
-// ============================================================
-
-const openai = OPENAI_API_KEY
-    ? new OpenAI({
-        apiKey: OPENAI_API_KEY
-    })
-    : null;
-
-// ============================================================
-// MIDDLEWARE
-// ============================================================
-
-app.use(
-    cors({
-        origin: true,
-        methods: ["GET", "POST", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"]
-    })
-);
-
-// JSON requests
-app.use(
-    express.json({
-        limit: "15mb"
-    })
-);
-
-// URL encoded requests
-app.use(
-    express.urlencoded({
-        extended: true,
-        limit: "15mb"
-    })
-);
-
-// ============================================================
-// BASIC ROUTE
-// ============================================================
-
-app.get("/", (req, res) => {
-    res.json({
-        success: true,
-        name: "Smart Agriculture Market Intelligence API",
-        version: "1.0.0",
-        status: "running"
-    });
-});
+const PLANT_ID_API_KEY = process.env.PLANT_ID_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // ============================================================
 // HEALTH CHECK
 // ============================================================
 
-app.get("/api/health", (req, res) => {
+app.get("/health", (req, res) => {
     res.json({
-        success: true,
-        status: "healthy",
-        service: "smart-agriculture-api",
+        status: "ok",
+        service: "Smart Agriculture Market Intelligence API",
         timestamp: new Date().toISOString(),
-
         services: {
-            openai: Boolean(OPENAI_API_KEY),
-            plant_id: Boolean(PLANT_ID_API_KEY),
-            data_gov: Boolean(DATA_GOV_API_KEY)
+            market: Boolean(DATA_GOV_API_KEY),
+            cropHealth: Boolean(PLANT_ID_API_KEY),
+            weather: true,
+            ai: Boolean(OPENAI_API_KEY)
         }
     });
 });
 
 // ============================================================
-// OPENAI AGRICULTURE ANALYSIS
+// STATUS
 // ============================================================
 
-app.post("/api/ai/analyze", async (req, res) => {
-    try {
-        if (!openai) {
-            return res.status(500).json({
-                success: false,
-                error: "OpenAI API key is not configured."
-            });
+app.get("/api/status", (req, res) => {
+    res.json({
+        success: true,
+        services: {
+            weather: {
+                provider: "Open-Meteo",
+                status: "available",
+                apiKeyRequired: false
+            },
+
+            market: {
+                provider: "data.gov.in",
+                status: DATA_GOV_API_KEY ? "configured" : "not_configured"
+            },
+
+            cropHealth: {
+                provider: "Plant.id",
+                status: PLANT_ID_API_KEY ? "configured" : "not_configured"
+            },
+
+            ai: {
+                provider: "OpenAI",
+                status: OPENAI_API_KEY ? "configured" : "inactive"
+            }
         }
+    });
+});
 
-        const {
-            crop,
-            location,
-            marketData,
-            weatherData,
-            cropHealth
-        } = req.body;
+// ============================================================
+// WEATHER - OPEN METEO
+// ============================================================
 
-        if (!crop && !location && !marketData && !cropHealth) {
+app.get("/api/weather", async (req, res) => {
+    try {
+        const { lat, lon, days = 7 } = req.query;
+
+        if (lat === undefined || lon === undefined) {
             return res.status(400).json({
                 success: false,
-                error: "Agricultural information is required."
+                error: "Latitude and longitude are required"
             });
         }
 
-        const prompt = `
-You are an agricultural market intelligence assistant.
+        const latitude = Number(lat);
+        const longitude = Number(lon);
+        const forecastDays = Math.min(Math.max(Number(days) || 7, 1), 7);
 
-Analyze the agricultural information provided below.
+        if (
+            !Number.isFinite(latitude) ||
+            latitude < -90 ||
+            latitude > 90
+        ) {
+            return res.status(400).json({
+                success: false,
+                error: "Invalid latitude"
+            });
+        }
 
-IMPORTANT:
-- Do not invent data.
-- Do not create fake prices.
-- Do not assume unavailable weather information.
-- If information is missing, clearly say that it is unavailable.
-- Keep recommendations practical for farmers.
-- Distinguish between observed data and your interpretation.
+        if (
+            !Number.isFinite(longitude) ||
+            longitude < -180 ||
+            longitude > 180
+        ) {
+            return res.status(400).json({
+                success: false,
+                error: "Invalid longitude"
+            });
+        }
 
-AGRICULTURAL INFORMATION
-========================
-
-Crop:
-${crop || "Not provided"}
-
-Location:
-${location || "Not provided"}
-
-MARKET DATA:
-${JSON.stringify(marketData || {}, null, 2)}
-
-WEATHER DATA:
-${JSON.stringify(weatherData || {}, null, 2)}
-
-CROP HEALTH DATA:
-${JSON.stringify(cropHealth || {}, null, 2)}
-
-Return the analysis using these sections:
-
-1. Market Summary
-2. Price Interpretation
-3. Demand and Supply Observations
-4. Crop Health Assessment
-5. Weather Risk
-6. Recommended Farmer Action
-7. Key Risks
-8. Data Availability
-
-Keep the answer clear and useful.
-`;
-
-        const response = await openai.responses.create({
-            model: "gpt-5",
-            input: prompt
+        const params = new URLSearchParams({
+            latitude: String(latitude),
+            longitude: String(longitude),
+            daily: [
+                "temperature_2m_max",
+                "temperature_2m_min",
+                "precipitation_sum",
+                "precipitation_probability_max"
+            ].join(","),
+            timezone: "auto",
+            forecast_days: String(forecastDays)
         });
 
-        return res.json({
+        const response = await fetch(
+            `https://api.open-meteo.com/v1/forecast?${params.toString()}`
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+
+            console.error(
+                "Open-Meteo error:",
+                response.status,
+                errorText
+            );
+
+            return res.status(502).json({
+                success: false,
+                error: "Weather provider unavailable"
+            });
+        }
+
+        const data = await response.json();
+
+        if (!data.daily || !data.daily.time) {
+            return res.status(502).json({
+                success: false,
+                error: "Invalid weather response"
+            });
+        }
+
+        const forecast = data.daily.time.map((date, index) => ({
+            date,
+
+            temp_max_c:
+                data.daily.temperature_2m_max?.[index] ?? null,
+
+            temp_min_c:
+                data.daily.temperature_2m_min?.[index] ?? null,
+
+            rainfall_mm:
+                data.daily.precipitation_sum?.[index] ?? null,
+
+            rain_probability_pct:
+                data.daily.precipitation_probability_max?.[index] ?? null
+        }));
+
+        res.json({
             success: true,
-            analysis: response.output_text
+
+            location: {
+                latitude: data.latitude,
+                longitude: data.longitude,
+                timezone: data.timezone
+            },
+
+            forecast
         });
 
     } catch (error) {
-        console.error("OpenAI error:", error);
+        console.error("Weather error:", error);
 
-        return res.status(500).json({
+        res.status(500).json({
             success: false,
-            error: "OpenAI analysis failed."
+            error: "Failed to fetch weather"
         });
     }
 });
 
 // ============================================================
-// OPENAI SIMPLE CHAT/QUESTION ENDPOINT
-// ============================================================
-
-app.post("/api/ai/chat", async (req, res) => {
-    try {
-        if (!openai) {
-            return res.status(500).json({
-                success: false,
-                error: "OpenAI API key is not configured."
-            });
-        }
-
-        const { message } = req.body;
-
-        if (!message) {
-            return res.status(400).json({
-                success: false,
-                error: "Message is required."
-            });
-        }
-
-        const response = await openai.responses.create({
-            model: "gpt-5",
-            input: `
-You are an agricultural assistant.
-
-Answer the farmer's question clearly and practically.
-
-Question:
-${message}
-`
-        });
-
-        return res.json({
-            success: true,
-            response: response.output_text
-        });
-
-    } catch (error) {
-        console.error("OpenAI chat error:", error);
-
-        return res.status(500).json({
-            success: false,
-            error: "Unable to process AI request."
-        });
-    }
-});
-
-// ============================================================
-// DATA.GOV.IN MARKET DATA
+// MARKET DATA - DATA.GOV.IN
 // ============================================================
 
 app.get("/api/market", async (req, res) => {
     try {
         if (!DATA_GOV_API_KEY) {
-            return res.status(500).json({
+            return res.status(503).json({
                 success: false,
-                error: "Data.gov.in API key is not configured."
+                error: "DATA_GOV_API_KEY is not configured"
             });
         }
 
         const {
+            crop,
             state,
             district,
-            market,
-            commodity,
-            variety,
-            limit = 20
-        } = req.query;
-
-        const params = new URLSearchParams();
-
-        params.append(
-            "api-key",
-            DATA_GOV_API_KEY
-        );
-
-        params.append(
-            "format",
-            "json"
-        );
-
-        params.append(
-            "limit",
-            String(Math.min(Number(limit) || 20, 100))
-        );
-
-        // ----------------------------------------------------
-        // Optional filters
-        // ----------------------------------------------------
-
-        if (state) {
-            params.append(
-                "filters[state.keyword]",
-                state
-            );
-        }
-
-        if (district) {
-            params.append(
-                "filters[district.keyword]",
-                district
-            );
-        }
-
-        if (market) {
-            params.append(
-                "filters[market.keyword]",
-                market
-            );
-        }
-
-        if (commodity) {
-            params.append(
-                "filters[commodity.keyword]",
-                commodity
-            );
-        }
-
-        if (variety) {
-            params.append(
-                "filters[variety.keyword]",
-                variety
-            );
-        }
-
-        const response = await fetch(
-            `${DATA_GOV_URL}?${params.toString()}`
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            console.error(
-                "Data.gov.in response:",
-                data
-            );
-
-            return res.status(response.status).json({
-                success: false,
-                error: "Data.gov.in request failed.",
-                details: data
-            });
-        }
-
-        return res.json({
-            success: true,
-            source: "data.gov.in",
-            data
-        });
-
-    } catch (error) {
-        console.error(
-            "Market data error:",
-            error
-        );
-
-        return res.status(500).json({
-            success: false,
-            error: "Unable to retrieve market data."
-        });
-    }
-});
-
-// ============================================================
-// DATA.GOV.IN MARKET SEARCH
-// ============================================================
-
-app.get("/api/market/search", async (req, res) => {
-    try {
-        if (!DATA_GOV_API_KEY) {
-            return res.status(500).json({
-                success: false,
-                error: "Data.gov.in API key is not configured."
-            });
-        }
-
-        const {
-            state,
-            district,
-            commodity,
-            limit = 20
+            limit = 50
         } = req.query;
 
         const params = new URLSearchParams({
             "api-key": DATA_GOV_API_KEY,
             format: "json",
-            limit: String(
-                Math.min(Number(limit) || 20, 100)
-            )
+            limit: String(Math.min(Number(limit) || 50, 100))
         });
+
+        // Add filters only when supplied.
+        if (crop) {
+            params.append(
+                "filters[Commodity]",
+                crop
+            );
+        }
 
         if (state) {
             params.append(
-                "filters[state.keyword]",
+                "filters[State]",
                 state
             );
         }
 
         if (district) {
             params.append(
-                "filters[district.keyword]",
+                "filters[District]",
                 district
             );
         }
 
-        if (commodity) {
-            params.append(
-                "filters[commodity.keyword]",
-                commodity
-            );
-        }
+        const url =
+            "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?" +
+            params.toString();
 
-        const response = await fetch(
-            `${DATA_GOV_URL}?${params.toString()}`
-        );
-
-        const data = await response.json();
+        const response = await fetch(url);
 
         if (!response.ok) {
-            return res.status(response.status).json({
+            const errorText = await response.text();
+
+            console.error(
+                "Data.gov.in error:",
+                response.status,
+                errorText
+            );
+
+            return res.status(502).json({
                 success: false,
-                error: "Market search failed.",
-                details: data
+                error: "Market data provider unavailable"
             });
         }
 
-        return res.json({
+        const data = await response.json();
+
+        res.json({
             success: true,
-            data
+            source: "data.gov.in",
+            total: data.total ?? null,
+            records: data.records ?? []
         });
 
     } catch (error) {
-        console.error(
-            "Market search error:",
-            error
-        );
+        console.error("Market API error:", error);
 
-        return res.status(500).json({
+        res.status(500).json({
             success: false,
-            error: "Unable to search market data."
+            error: "Failed to fetch market data"
         });
     }
 });
 
 // ============================================================
-// PLANT.ID CROP HEALTH ANALYSIS
+// MARKET HISTORY
+// ============================================================
+
+app.get("/api/market/history", async (req, res) => {
+    try {
+        if (!DATA_GOV_API_KEY) {
+            return res.status(503).json({
+                success: false,
+                error: "DATA_GOV_API_KEY is not configured"
+            });
+        }
+
+        const {
+            crop,
+            state,
+            district,
+            limit = 100
+        } = req.query;
+
+        const params = new URLSearchParams({
+            "api-key": DATA_GOV_API_KEY,
+            format: "json",
+            limit: String(Math.min(Number(limit) || 100, 100))
+        });
+
+        if (crop) {
+            params.append(
+                "filters[Commodity]",
+                crop
+            );
+        }
+
+        if (state) {
+            params.append(
+                "filters[State]",
+                state
+            );
+        }
+
+        if (district) {
+            params.append(
+                "filters[District]",
+                district
+            );
+        }
+
+        const response = await fetch(
+            "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?" +
+            params.toString()
+        );
+
+        if (!response.ok) {
+            return res.status(502).json({
+                success: false,
+                error: "Market history provider unavailable"
+            });
+        }
+
+        const data = await response.json();
+
+        res.json({
+            success: true,
+            records: data.records ?? []
+        });
+
+    } catch (error) {
+        console.error("Market history error:", error);
+
+        res.status(500).json({
+            success: false,
+            error: "Failed to fetch market history"
+        });
+    }
+});
+
+// ============================================================
+// MARKET STATS
+// ============================================================
+
+app.get("/api/market/stats", async (req, res) => {
+    try {
+        if (!DATA_GOV_API_KEY) {
+            return res.status(503).json({
+                success: false,
+                error: "DATA_GOV_API_KEY is not configured"
+            });
+        }
+
+        const params = new URLSearchParams({
+            "api-key": DATA_GOV_API_KEY,
+            format: "json",
+            limit: "100"
+        });
+
+        if (req.query.crop) {
+            params.append(
+                "filters[Commodity]",
+                req.query.crop
+            );
+        }
+
+        if (req.query.state) {
+            params.append(
+                "filters[State]",
+                req.query.state
+            );
+        }
+
+        if (req.query.district) {
+            params.append(
+                "filters[District]",
+                req.query.district
+            );
+        }
+
+        const response = await fetch(
+            "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?" +
+            params.toString()
+        );
+
+        if (!response.ok) {
+            return res.status(502).json({
+                success: false,
+                error: "Market statistics provider unavailable"
+            });
+        }
+
+        const data = await response.json();
+        const records = data.records || [];
+
+        const prices = records
+            .map(record => {
+                const value =
+                    record.Modal_Price ??
+                    record.modal_price ??
+                    record.ModalPrice;
+
+                if (value === undefined) {
+                    return null;
+                }
+
+                const number = Number(
+                    String(value).replace(/,/g, "")
+                );
+
+                return Number.isFinite(number)
+                    ? number
+                    : null;
+            })
+            .filter(value => value !== null);
+
+        if (prices.length === 0) {
+            return res.json({
+                success: true,
+                count: 0,
+                min: null,
+                max: null,
+                average: null
+            });
+        }
+
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const average =
+            prices.reduce((sum, value) => sum + value, 0) /
+            prices.length;
+
+        res.json({
+            success: true,
+            count: prices.length,
+            min,
+            max,
+            average: Number(average.toFixed(2))
+        });
+
+    } catch (error) {
+        console.error("Market stats error:", error);
+
+        res.status(500).json({
+            success: false,
+            error: "Failed to calculate market statistics"
+        });
+    }
+});
+
+// ============================================================
+// PRICE PREDICTION
+// ============================================================
+
+app.get("/api/predict-price", async (req, res) => {
+    try {
+        const {
+            crop,
+            state,
+            district
+        } = req.query;
+
+        if (!crop) {
+            return res.status(400).json({
+                success: false,
+                error: "Crop is required"
+            });
+        }
+
+        if (!DATA_GOV_API_KEY) {
+            return res.status(503).json({
+                success: false,
+                error: "DATA_GOV_API_KEY is not configured"
+            });
+        }
+
+        const params = new URLSearchParams({
+            "api-key": DATA_GOV_API_KEY,
+            format: "json",
+            limit: "100"
+        });
+
+        params.append(
+            "filters[Commodity]",
+            crop
+        );
+
+        if (state) {
+            params.append(
+                "filters[State]",
+                state
+            );
+        }
+
+        if (district) {
+            params.append(
+                "filters[District]",
+                district
+            );
+        }
+
+        const response = await fetch(
+            "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?" +
+            params.toString()
+        );
+
+        if (!response.ok) {
+            return res.status(502).json({
+                success: false,
+                error: "Unable to fetch price data"
+            });
+        }
+
+        const data = await response.json();
+        const records = data.records || [];
+
+        const prices = records
+            .map(record => {
+                const value =
+                    record.Modal_Price ??
+                    record.modal_price ??
+                    record.ModalPrice;
+
+                const number = Number(
+                    String(value ?? "").replace(/,/g, "")
+                );
+
+                return Number.isFinite(number)
+                    ? number
+                    : null;
+            })
+            .filter(value => value !== null);
+
+        if (prices.length === 0) {
+            return res.json({
+                success: true,
+                crop,
+                prediction: null,
+                message: "No price data available"
+            });
+        }
+
+        const average =
+            prices.reduce((sum, value) => sum + value, 0) /
+            prices.length;
+
+        // Simple baseline prediction.
+        // Replace with an ML model later.
+        const predictedPrice = Number(
+            average.toFixed(2)
+        );
+
+        res.json({
+            success: true,
+            crop,
+            prediction: predictedPrice,
+            current_average: Number(average.toFixed(2)),
+            samples: prices.length,
+            method: "historical-average-baseline"
+        });
+
+    } catch (error) {
+        console.error("Price prediction error:", error);
+
+        res.status(500).json({
+            success: false,
+            error: "Failed to predict price"
+        });
+    }
+});
+
+// ============================================================
+// PLANT.ID CROP HEALTH
 // ============================================================
 
 app.post("/api/crop-health", async (req, res) => {
     try {
         if (!PLANT_ID_API_KEY) {
-            return res.status(500).json({
+            return res.status(503).json({
                 success: false,
-                error: "Plant.id API key is not configured."
+                error: "PLANT_ID_API_KEY is not configured"
             });
         }
 
@@ -455,22 +604,21 @@ app.post("/api/crop-health", async (req, res) => {
         if (!image) {
             return res.status(400).json({
                 success: false,
-                error: "Image is required."
+                error: "Image is required"
             });
         }
 
-        // ----------------------------------------------------
-        // Remove data URL prefix if frontend sends:
-        //
-        // data:image/jpeg;base64,...
-        // ----------------------------------------------------
+        let base64Image = image;
 
-        const cleanImage = image.includes(",")
-            ? image.split(",")[1]
-            : image;
+        // Accept data URLs such as:
+        // data:image/jpeg;base64,/9j/...
+        if (base64Image.includes(",")) {
+            base64Image =
+                base64Image.split(",")[1];
+        }
 
         const response = await fetch(
-            PLANT_ID_URL,
+            "https://plant.id/api/v3/identification",
             {
                 method: "POST",
 
@@ -480,14 +628,9 @@ app.post("/api/crop-health", async (req, res) => {
                 },
 
                 body: JSON.stringify({
-                    images: [
-                        cleanImage
-                    ],
-
+                    images: [base64Image],
                     health: "all",
-
                     similar_images: true,
-
                     language: "en"
                 })
             }
@@ -497,177 +640,152 @@ app.post("/api/crop-health", async (req, res) => {
 
         if (!response.ok) {
             console.error(
-                "Plant.id response:",
+                "Plant.id error:",
+                response.status,
                 data
             );
 
-            return res.status(response.status).json({
+            return res.status(502).json({
                 success: false,
-                error: "Plant.id request failed.",
+                error: "Plant health service unavailable",
                 details: data
             });
         }
 
-        return res.json({
+        res.json({
             success: true,
-            source: "plant.id",
             data
         });
 
     } catch (error) {
-        console.error(
-            "Plant.id error:",
-            error
-        );
+        console.error("Plant.id error:", error);
 
-        return res.status(500).json({
+        res.status(500).json({
             success: false,
-            error: "Unable to analyze crop health."
+            error: "Failed to analyze crop health"
         });
     }
 });
 
 // ============================================================
-// COMBINED AGRICULTURE ANALYSIS
+// OPENAI AI
 // ============================================================
 
-app.post("/api/agriculture/analyze", async (req, res) => {
+app.post("/api/ai", async (req, res) => {
     try {
-        if (!openai) {
-            return res.status(500).json({
+        const {
+            question,
+            message,
+            prompt
+        } = req.body;
+
+        const userQuestion =
+            question ||
+            message ||
+            prompt;
+
+        if (!userQuestion || !String(userQuestion).trim()) {
+            return res.status(400).json({
                 success: false,
-                error: "OpenAI API key is not configured."
+                error: "Question is required"
             });
         }
 
-        const {
-            crop,
-            location,
-            marketData,
-            cropHealth,
-            weatherData
-        } = req.body;
+        // OpenAI is currently inactive.
+        // Keep the endpoint alive so the frontend doesn't break.
+        if (!OPENAI_API_KEY) {
+            return res.json({
+                success: true,
+                available: false,
+                answer:
+                    "The SmartAgri AI service is currently unavailable. " +
+                    "Market, weather and crop-health services remain available."
+            });
+        }
 
-        const prompt = `
-You are an expert agricultural market intelligence assistant.
+        const response = await fetch(
+            "https://api.openai.com/v1/responses",
+            {
+                method: "POST",
 
-The farmer needs a concise decision-support report.
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization":
+                        `Bearer ${OPENAI_API_KEY}`
+                },
 
-Crop:
-${crop || "Unknown"}
+                body: JSON.stringify({
+                    model: "gpt-5-mini",
 
-Location:
-${location || "Unknown"}
+                    instructions:
+                        "You are SmartAgri AI, an agricultural market " +
+                        "intelligence assistant. Provide concise, practical " +
+                        "and safe agricultural guidance. Do not invent " +
+                        "market prices or weather information.",
 
-Market information:
-${JSON.stringify(
-    marketData || {},
-    null,
-    2
-)}
+                    input: String(userQuestion)
+                })
+            }
+        );
 
-Crop health information:
-${JSON.stringify(
-    cropHealth || {},
-    null,
-    2
-)}
+        const data = await response.json();
 
-Weather information:
-${JSON.stringify(
-    weatherData || {},
-    null,
-    2
-)}
+        if (!response.ok) {
+            console.error(
+                "OpenAI error:",
+                response.status,
+                data
+            );
 
-Analyze ONLY the supplied information.
+            return res.json({
+                success: true,
+                available: false,
+                answer:
+                    "The AI service is currently unavailable. " +
+                    "Please use the market, weather and crop-health features."
+            });
+        }
 
-Do not fabricate:
-- prices
-- rainfall
-- disease names
-- market trends
-- demand
-- supply
-- weather conditions
+        const answer =
+            data.output_text ||
+            data.output
+                ?.flatMap(item => item.content || [])
+                ?.map(item => item.text || "")
+                ?.join("")
+                ?.trim() ||
+            "No AI response was generated.";
 
-If a required piece of information is unavailable,
-say "Data unavailable".
-
-Provide:
-
-MARKET OUTLOOK
-Explain the current market situation.
-
-CROP HEALTH
-Explain detected crop health information.
-
-RISK ASSESSMENT
-Identify important risks.
-
-FARMER RECOMMENDATION
-Give practical actions based only on the available data.
-
-CONFIDENCE
-State whether the recommendation has high, medium,
-or low confidence and explain why.
-
-Keep the report concise and understandable.
-`;
-
-        const response = await openai.responses.create({
-            model: "gpt-5",
-            input: prompt
-        });
-
-        return res.json({
+        res.json({
             success: true,
-
-            crop: crop || null,
-
-            location: location || null,
-
-            analysis: response.output_text
+            available: true,
+            answer
         });
 
     } catch (error) {
-        console.error(
-            "Combined analysis error:",
-            error
-        );
+        console.error("OpenAI request error:", error);
 
-        return res.status(500).json({
-            success: false,
-            error: "Agriculture analysis failed."
+        res.json({
+            success: true,
+            available: false,
+            answer:
+                "The AI service is temporarily unavailable."
         });
     }
 });
 
 // ============================================================
-// 404 HANDLER
+// STATIC FRONTEND
 // ============================================================
 
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        error: "Endpoint not found."
-    });
-});
+const publicPath = path.join(__dirname, "public");
 
-// ============================================================
-// GLOBAL ERROR HANDLER
-// ============================================================
+app.use(express.static(publicPath));
 
-app.use((error, req, res, next) => {
-    console.error(
-        "Unhandled server error:",
-        error
+// SPA fallback
+app.get("*", (req, res) => {
+    res.sendFile(
+        path.join(publicPath, "index.html")
     );
-
-    res.status(500).json({
-        success: false,
-        error: "Internal server error."
-    });
 });
 
 // ============================================================
@@ -676,33 +794,24 @@ app.use((error, req, res, next) => {
 
 app.listen(PORT, () => {
     console.log("");
+    console.log("==============================================");
+    console.log(" Smart Agriculture API");
+    console.log("==============================================");
+    console.log(` Server running on port ${PORT}`);
+    console.log("");
+    console.log(" Services:");
     console.log(
-        "=============================================="
+        `  Weather:     Open-Meteo (no API key)`
     );
     console.log(
-        " Smart Agriculture Market Intelligence API"
+        `  Market:      ${DATA_GOV_API_KEY ? "configured" : "NOT configured"}`
     );
     console.log(
-        "=============================================="
+        `  Crop Health: ${PLANT_ID_API_KEY ? "configured" : "NOT configured"}`
     );
     console.log(
-        `Server: http://localhost:${PORT}`
-    );
-    console.log(
-        `Health: http://localhost:${PORT}/api/health`
+        `  OpenAI:      ${OPENAI_API_KEY ? "configured" : "inactive"}`
     );
     console.log("");
-    console.log(
-        "Configured services:"
-    );
-    console.log(
-        `OpenAI:    ${OPENAI_API_KEY ? "YES" : "NO"}`
-    );
-    console.log(
-        `Plant.id:  ${PLANT_ID_API_KEY ? "YES" : "NO"}`
-    );
-    console.log(
-        `Data.gov:  ${DATA_GOV_API_KEY ? "YES" : "NO"}`
-    );
-    console.log("");
+    console.log("==============================================");
 });
