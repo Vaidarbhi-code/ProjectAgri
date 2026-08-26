@@ -1,8 +1,7 @@
 {
   "name": "smartagri-backend",
   "version": "1.0.0",
-  "private": true,
-  "description": "SmartAgri Agriculture Market Intelligence Backend",
+  "description": "SmartAgri production backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -15,8 +14,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
-    "express-rate-limit": "^7.5.0",
-    "helmet": "^8.1.0",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "openai": "^5.12.2"
   }
 }
