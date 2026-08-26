@@ -11,7 +11,7 @@ with open(image_path, "rb") as f:
 response = requests.post(
     "https://plant.id/api/v3/identification",
     headers={
-        "Api-Key": API_KEY,
+        "Api-Key": Cu2ykrFzxDc4jwwoRDjYNOcsIWGLkH0DFwHiOHRCO8Vw0bSpoP,
         "Content-Type": "application/json",
     },
     json={
