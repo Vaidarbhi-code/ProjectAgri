@@ -41,6 +41,105 @@ document.addEventListener("DOMContentLoaded", () => {
 
     }
 
+   ```javascript
+// ============================================================
+// LANGUAGE PAGE -> DEMO DASHBOARD
+// ============================================================
+
+function setupContinueButton() {
+
+    const continueButton =
+        document.getElementById("continueBtn");
+
+    if (!continueButton) {
+        console.error(
+            "SmartAgri: continueBtn was not found."
+        );
+        return;
+    }
+
+    console.log(
+        "SmartAgri: Continue button found."
+    );
+
+    // Make sure it does not submit a form
+    continueButton.type = "button";
+
+    continueButton.addEventListener(
+        "click",
+        function(event) {
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            console.log(
+                "SmartAgri: Continue button clicked."
+            );
+
+            // ------------------------------------------------
+            // Go directly to the Demo Dashboard
+            // ------------------------------------------------
+
+            const languagePage =
+                document.getElementById("languagePage");
+
+            const dashboardPage =
+                document.getElementById("demoDashboard");
+
+            // If your app uses page/section elements
+            if (languagePage) {
+                languagePage.style.display = "none";
+            }
+
+            if (dashboardPage) {
+                dashboardPage.style.display = "block";
+            }
+
+            // ------------------------------------------------
+            // If the dashboard uses an active-page system
+            // ------------------------------------------------
+
+            document
+                .querySelectorAll(".page")
+                .forEach(function(page) {
+                    page.classList.remove("active");
+                });
+
+            if (dashboardPage) {
+                dashboardPage.classList.add("active");
+            }
+
+            // ------------------------------------------------
+            // Start dashboard weather
+            // ------------------------------------------------
+
+            if (typeof loadWeather === "function") {
+                loadWeather();
+            }
+
+        }
+    );
+}
+
+
+// ============================================================
+// PAGE LOAD
+// ============================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+        console.log(
+            "SmartAgri: Frontend loaded."
+        );
+
+        setupContinueButton();
+
+    }
+);
+```
+
 
     /* =====================================================
        GLOBAL STATE
