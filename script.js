@@ -1691,235 +1691,403 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
 
-    /* =====================================================
-       WEATHER
-    ===================================================== */
+    // ============================================================
+// SMARTAGRI FRONTEND CONFIGURATION
+// ============================================================
 
-    const refreshWeatherBtn =
-        document.getElementById(
-            "refreshWeatherBtn"
+const API_BASE_URL = "http://localhost:5000";
+
+
+// ============================================================
+// DOM HELPERS
+// ============================================================
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+
+// ============================================================
+// CONNECTION STATUS
+// ============================================================
+
+async function checkConnection() {
+
+    const statusElement = $("connectionStatus");
+
+    if (!statusElement) {
+        console.warn("connectionStatus element not found");
+        return;
+    }
+
+    statusElement.textContent = "Checking...";
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE_URL}/health`,
+            {
+                method: "GET",
+                cache: "no-store"
+            }
         );
 
+        if (!response.ok) {
+            throw new Error(`Backend returned ${response.status}`);
+        }
 
-    if (refreshWeatherBtn) {
+        const data = await response.json();
 
-        refreshWeatherBtn.addEventListener(
-            "click",
-            loadWeather
+        if (data.status === "healthy") {
+
+            statusElement.textContent = "Online";
+
+            statusElement.classList.remove("offline");
+            statusElement.classList.add("online");
+
+        } else {
+
+            statusElement.textContent = "Offline";
+
+            statusElement.classList.remove("online");
+            statusElement.classList.add("offline");
+        }
+
+    } catch (error) {
+
+        console.error("Connection check failed:", error);
+
+        statusElement.textContent = "Offline";
+
+        statusElement.classList.remove("online");
+        statusElement.classList.add("offline");
+    }
+}
+
+
+// ============================================================
+// WEATHER
+// ============================================================
+
+async function loadWeather() {
+
+    console.log("Loading weather...");
+
+    const weatherError = $("weatherError");
+    const weatherLoading = $("weatherLoading");
+    const weatherContent = $("weatherContent");
+
+    if (weatherError) {
+        weatherError.style.display = "none";
+        weatherError.textContent = "";
+    }
+
+    if (weatherLoading) {
+        weatherLoading.style.display = "block";
+        weatherLoading.textContent = "Loading weather...";
+    }
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE_URL}/api/weather`,
+            {
+                method: "GET",
+                cache: "no-store"
+            }
         );
 
+        console.log("Weather HTTP status:", response.status);
+
+        const data = await response.json();
+
+        console.log("Weather response:", data);
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                `Weather API returned ${response.status}`
+            );
+        }
+
+        if (!data.success) {
+
+            throw new Error(
+                data.error ||
+                "Weather data unavailable"
+            );
+        }
+
+        displayWeather(data);
+
+        if (weatherContent) {
+            weatherContent.style.display = "block";
+        }
+
+    } catch (error) {
+
+        console.error("Weather loading failed:", error);
+
+        if (weatherError) {
+
+            weatherError.textContent =
+                "Unable to load weather: " +
+                error.message;
+
+            weatherError.style.display = "block";
+        }
+
+    } finally {
+
+        if (weatherLoading) {
+            weatherLoading.style.display = "none";
+        }
+    }
+}
+
+
+// ============================================================
+// DISPLAY CURRENT WEATHER
+// ============================================================
+
+function displayWeather(data) {
+
+    console.log("Displaying weather:", data);
+
+    const temperature = data.temperature_c ?? data.temperature;
+    const humidity = data.humidity_pct ?? data.humidity;
+    const wind = data.wind_speed_kmh ?? data.wind_speed;
+    const rainfall = data.precipitation_mm ?? data.precipitation;
+
+    const condition =
+        data.condition ||
+        data.weather_condition ||
+        "Unknown";
+
+    const location =
+        data.location ||
+        "Kopargaon";
+
+
+    // Location
+    if ($("weatherLocation")) {
+        $("weatherLocation").textContent = location;
     }
 
 
-    async function loadWeather() {
+    // Temperature
+    if ($("temperature")) {
+
+        $("temperature").textContent =
+            temperature !== null &&
+            temperature !== undefined
+                ? `${temperature}°C`
+                : "--";
+    }
+
+
+    // Humidity
+    if ($("humidity")) {
+
+        $("humidity").textContent =
+            humidity !== null &&
+            humidity !== undefined
+                ? `${humidity}%`
+                : "--";
+    }
+
+
+    // Wind
+    if ($("windSpeed")) {
+
+        $("windSpeed").textContent =
+            wind !== null &&
+            wind !== undefined
+                ? `${wind} km/h`
+                : "--";
+    }
+
+
+    // Rainfall
+    if ($("rainfall")) {
+
+        $("rainfall").textContent =
+            rainfall !== null &&
+            rainfall !== undefined
+                ? `${rainfall} mm`
+                : "--";
+    }
+
+
+    // Condition
+    if ($("weatherCondition")) {
+        $("weatherCondition").textContent = condition;
+    }
+
+
+    // Forecast
+    displayForecast(data.forecast || []);
+}
+
+
+// ============================================================
+// DISPLAY FORECAST
+// ============================================================
+
+function displayForecast(forecast) {
+
+    const container = $("weatherForecast");
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!forecast.length) {
+
+        container.innerHTML =
+            "<p>Forecast data unavailable.</p>";
+
+        return;
+    }
+
+
+    forecast.forEach(day => {
+
+        const card = document.createElement("div");
+
+        card.className = "forecast-card";
+
+        card.innerHTML = `
+            <div class="forecast-date">
+                ${formatDate(day.date)}
+            </div>
+
+            <div class="forecast-condition">
+                ${day.condition || "Unknown"}
+            </div>
+
+            <div class="forecast-temperature">
+                ${day.temp_max_c ?? "--"}°C /
+                ${day.temp_min_c ?? "--"}°C
+            </div>
+
+            <div class="forecast-rain">
+                Rain: ${day.rainfall_mm ?? "--"} mm
+            </div>
+
+            <div class="forecast-probability">
+                Rain chance:
+                ${day.rain_probability_pct ?? "--"}%
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+
+// ============================================================
+// DATE FORMAT
+// ============================================================
+
+function formatDate(dateString) {
+
+    if (!dateString) {
+        return "--";
+    }
+
+    try {
+
+        const date = new Date(
+            `${dateString}T00:00:00`
+        );
+
+        return date.toLocaleDateString(
+            "en-IN",
+            {
+                weekday: "short",
+                day: "numeric",
+                month: "short"
+            }
+        );
+
+    } catch {
+
+        return dateString;
+    }
+}
+
+
+// ============================================================
+// REFRESH WEATHER BUTTON
+// ============================================================
+
+function setupWeatherButton() {
+
+    const button = $("refreshWeatherBtn");
+
+    if (!button) {
+
+        console.warn(
+            "refreshWeatherBtn not found"
+        );
+
+        return;
+    }
+
+    button.addEventListener(
+        "click",
+        async function () {
+
+            button.disabled = true;
+
+            button.textContent =
+                "Loading...";
+
+            try {
+
+                await loadWeather();
+
+            } finally {
+
+                button.disabled = false;
+
+                button.textContent =
+                    "🔄 Refresh";
+            }
+        }
+    );
+}
+
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
 
         console.log(
-            "Requesting weather from Flask..."
+            "SmartAgri frontend started"
         );
 
+        setupWeatherButton();
 
-        showElement(
-            "weatherLoading"
+        checkConnection();
+
+        loadWeather();
+
+        // Check backend every 30 seconds
+        setInterval(
+            checkConnection,
+            30000
         );
-
-        hideElement(
-            "weatherError"
-        );
-
-
-        try {
-
-            const response =
-                await fetch(
-                    "/api/weather",
-                    {
-                        method: "GET",
-                        headers: {
-                            "Accept":
-                                "application/json"
-                        }
-                    }
-                );
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    `Weather API returned ${response.status}`
-                );
-
-            }
-
-
-            const data =
-                await response.json();
-
-
-            console.log(
-                "Weather response:",
-                data
-            );
-
-
-            currentWeather =
-                data;
-
-
-            renderWeather(
-                data
-            );
-
-
-            updateConnectionStatus(
-                true
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Weather error:",
-                error
-            );
-
-
-            hideElement(
-                "weatherData"
-            );
-
-            showElement(
-                "weatherEmptyState"
-            );
-
-
-            showElement(
-                "weatherError"
-            );
-
-
-            const weatherError =
-                document.getElementById(
-                    "weatherError"
-                );
-
-
-            if (weatherError) {
-
-                weatherError.textContent =
-                    "Unable to load weather: " +
-                    error.message;
-
-            }
-
-
-            updateConnectionStatus(
-                false
-            );
-
-        } finally {
-
-            hideElement(
-                "weatherLoading"
-            );
-
-        }
-
     }
-
-
-    function renderWeather(data) {
-
-        const current =
-            data.current || data;
-
-
-        const temperature =
-            current.temperature_c ??
-            current.temperature_2m ??
-            current.temperature ??
-            null;
-
-
-        const humidity =
-            current.humidity_pct ??
-            current.relative_humidity_2m ??
-            current.humidity ??
-            null;
-
-
-        const wind =
-            current.wind_speed_kmh ??
-            current.wind_speed_10m ??
-            current.wind ??
-            null;
-
-
-        const precipitation =
-            current.precipitation_mm ??
-            current.precipitation ??
-            null;
-
-
-        setText(
-            "weatherTemperature",
-            temperature !== null
-                ? `${temperature} °C`
-                : "—"
-        );
-
-
-        setText(
-            "weatherHumidity",
-            humidity !== null
-                ? `${humidity} %`
-                : "—"
-        );
-
-
-        setText(
-            "weatherWind",
-            wind !== null
-                ? `${wind} km/h`
-                : "—"
-        );
-
-
-        let rainValue = "—";
-
-
-        if (
-            current.rain_probability_pct !==
-            undefined
-        ) {
-
-            rainValue =
-                `${current.rain_probability_pct}%`;
-
-        } else if (
-            precipitation !== null
-        ) {
-
-            rainValue =
-                `${precipitation} mm`;
-
-        }
-
-
-        setText(
-            "weatherRain",
-            rainValue
-        );
-
-
-        hideElement(
-            "weatherEmptyState"
-        );
-
-        showElement(
-            "weatherData"
-        );
-
-    }
+);
 
 
     /* =====================================================
