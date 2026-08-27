@@ -1766,189 +1766,368 @@ async function checkConnection() {
 
 
 // ============================================================
+// SMARTAGRI - COMPLETE FRONTEND SCRIPT
+// Weather: Flask backend -> Open-Meteo -> Kopargaon
+// ============================================================
+
+const API_BASE_URL = "http://127.0.0.1:5000";
+
+// ============================================================
+// API HELPER
+// ============================================================
+
+async function apiFetch(endpoint, options = {}) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        cache: "no-store",
+        ...options,
+        headers: {
+            "Cache-Control": "no-cache",
+            ...(options.headers || {})
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`API request failed: HTTP ${response.status}`);
+    }
+
+    return await response.json();
+}
+
+
+// ============================================================
+// DOM HELPERS
+// ============================================================
+
+function getElement(id) {
+    return document.getElementById(id);
+}
+
+function setText(id, value) {
+    const element = getElement(id);
+
+    if (element) {
+        element.textContent = value;
+    }
+}
+
+
+// ============================================================
 // WEATHER
 // ============================================================
 
 async function loadWeather() {
 
-    console.log("Loading weather...");
+    console.log("Loading live Kopargaon weather...");
 
-    const weatherError = $("weatherError");
-    const weatherLoading = $("weatherLoading");
-    const weatherContent = $("weatherContent");
+    const refreshButton = getElement("refreshWeatherBtn");
 
-    if (weatherError) {
-        weatherError.style.display = "none";
-        weatherError.textContent = "";
-    }
-
-    if (weatherLoading) {
-        weatherLoading.style.display = "block";
-        weatherLoading.textContent = "Loading weather...";
+    if (refreshButton) {
+        refreshButton.disabled = true;
+        refreshButton.textContent = "Refreshing...";
     }
 
     try {
 
-        const response = await fetch(
-            `${API_BASE_URL}/api/weather`,
-            {
-                method: "GET",
-                cache: "no-store"
-            }
-        );
+        const data = await apiFetch("/api/weather");
 
-        console.log("Weather HTTP status:", response.status);
+        console.log("Weather API response:", data);
 
-        const data = await response.json();
-
-        console.log("Weather response:", data);
-
-        if (!response.ok) {
-
+        if (!data || data.success === false) {
             throw new Error(
-                data.error ||
-                `Weather API returned ${response.status}`
+                data?.error || "Weather data unavailable."
             );
         }
 
-        if (!data.success) {
+        updateWeatherUI(data);
 
-            throw new Error(
-                data.error ||
-                "Weather data unavailable"
-            );
-        }
-
-        displayWeather(data);
-
-        if (weatherContent) {
-            weatherContent.style.display = "block";
-        }
+        console.log("Kopargaon weather updated successfully.");
 
     } catch (error) {
 
-        console.error("Weather loading failed:", error);
+        console.error("Weather loading error:", error);
 
-        if (weatherError) {
-
-            weatherError.textContent =
-                "Unable to load weather: " +
-                error.message;
-
-            weatherError.style.display = "block";
-        }
+        showWeatherError();
 
     } finally {
 
-        if (weatherLoading) {
-            weatherLoading.style.display = "none";
+        if (refreshButton) {
+            refreshButton.disabled = false;
+            refreshButton.textContent = "Refresh Weather";
         }
     }
 }
 
 
 // ============================================================
-// DISPLAY CURRENT WEATHER
+// UPDATE WEATHER UI
 // ============================================================
 
-function displayWeather(data) {
+function updateWeatherUI(data) {
 
-    console.log("Displaying weather:", data);
+    console.log("Updating weather UI:", data);
 
-    const temperature = data.temperature_c ?? data.temperature;
-    const humidity = data.humidity_pct ?? data.humidity;
-    const wind = data.wind_speed_kmh ?? data.wind_speed;
-    const rainfall = data.precipitation_mm ?? data.precipitation;
+    // --------------------------------------------------------
+    // Location
+    // --------------------------------------------------------
 
-    const condition =
+    setText(
+        "weatherLocation",
+        data.location || "Kopargaon"
+    );
+
+
+    // --------------------------------------------------------
+    // Temperature
+    // --------------------------------------------------------
+
+    const temperature =
+        data.temperature_c ??
+        data.temperature;
+
+    if (temperature !== null && temperature !== undefined) {
+
+        setText(
+            "temperature",
+            `${Math.round(Number(temperature))}°C`
+        );
+
+    } else {
+
+        setText(
+            "temperature",
+            "--°C"
+        );
+    }
+
+
+    // --------------------------------------------------------
+    // Humidity
+    // --------------------------------------------------------
+
+    const humidity =
+        data.humidity_pct ??
+        data.humidity;
+
+    if (humidity !== null && humidity !== undefined) {
+
+        setText(
+            "humidity",
+            `${Math.round(Number(humidity))}%`
+        );
+
+    } else {
+
+        setText(
+            "humidity",
+            "--%"
+        );
+    }
+
+
+    // --------------------------------------------------------
+    // Wind
+    // --------------------------------------------------------
+
+    const wind =
+        data.wind_speed_kmh ??
+        data.wind_speed;
+
+    if (wind !== null && wind !== undefined) {
+
+        setText(
+            "windSpeed",
+            `${Math.round(Number(wind))} km/h`
+        );
+
+    } else {
+
+        setText(
+            "windSpeed",
+            "-- km/h"
+        );
+    }
+
+
+    // --------------------------------------------------------
+    // Rain / Precipitation
+    // --------------------------------------------------------
+
+    const precipitation =
+        data.precipitation_mm ??
+        data.precipitation;
+
+    if (
+        precipitation !== null &&
+        precipitation !== undefined
+    ) {
+
+        setText(
+            "rainfall",
+            `${Number(precipitation).toFixed(1)} mm`
+        );
+
+    } else {
+
+        setText(
+            "rainfall",
+            "0 mm"
+        );
+    }
+
+
+    // --------------------------------------------------------
+    // Weather condition
+    // --------------------------------------------------------
+
+    setText(
+        "weatherCondition",
         data.condition ||
         data.weather_condition ||
-        "Unknown";
-
-    const location =
-        data.location ||
-        "Kopargaon";
+        "Weather data available"
+    );
 
 
-    // Location
-    if ($("weatherLocation")) {
-        $("weatherLocation").textContent = location;
+    // --------------------------------------------------------
+    // Rain probability
+    //
+    // Flask backend provides this inside:
+    // data.forecast[0].rain_probability_pct
+    // --------------------------------------------------------
+
+    let rainProbability = null;
+
+    if (
+        Array.isArray(data.forecast) &&
+        data.forecast.length > 0
+    ) {
+
+        rainProbability =
+            data.forecast[0].rain_probability_pct;
+    }
+
+    if (
+        rainProbability !== null &&
+        rainProbability !== undefined
+    ) {
+
+        setText(
+            "rainChance",
+            `${Math.round(Number(rainProbability))}%`
+        );
+
+    } else {
+
+        setText(
+            "rainChance",
+            "--%"
+        );
     }
 
 
-    // Temperature
-    if ($("temperature")) {
+    // --------------------------------------------------------
+    // Weather status
+    // --------------------------------------------------------
 
-        $("temperature").textContent =
-            temperature !== null &&
-            temperature !== undefined
-                ? `${temperature}°C`
-                : "--";
+    const statusElement =
+        getElement("weatherStatus");
+
+    if (statusElement) {
+
+        if (data.cached) {
+
+            statusElement.textContent =
+                "Showing latest stored weather";
+
+        } else {
+
+            statusElement.textContent =
+                "Live weather • Open-Meteo";
+        }
     }
 
 
-    // Humidity
-    if ($("humidity")) {
-
-        $("humidity").textContent =
-            humidity !== null &&
-            humidity !== undefined
-                ? `${humidity}%`
-                : "--";
-    }
-
-
-    // Wind
-    if ($("windSpeed")) {
-
-        $("windSpeed").textContent =
-            wind !== null &&
-            wind !== undefined
-                ? `${wind} km/h`
-                : "--";
-    }
-
-
-    // Rainfall
-    if ($("rainfall")) {
-
-        $("rainfall").textContent =
-            rainfall !== null &&
-            rainfall !== undefined
-                ? `${rainfall} mm`
-                : "--";
-    }
-
-
-    // Condition
-    if ($("weatherCondition")) {
-        $("weatherCondition").textContent = condition;
-    }
-
-
+    // --------------------------------------------------------
     // Forecast
-    displayForecast(data.forecast || []);
+    // --------------------------------------------------------
+
+    updateForecast(data.forecast || []);
 }
 
 
 // ============================================================
-// DISPLAY FORECAST
+// WEATHER ERROR
 // ============================================================
 
-function displayForecast(forecast) {
+function showWeatherError() {
 
-    const container = $("weatherForecast");
+    console.warn(
+        "Unable to load live weather."
+    );
 
-    if (!container) {
+    setText(
+        "temperature",
+        "--°C"
+    );
+
+    setText(
+        "humidity",
+        "--%"
+    );
+
+    setText(
+        "windSpeed",
+        "-- km/h"
+    );
+
+    setText(
+        "rainfall",
+        "-- mm"
+    );
+
+    setText(
+        "rainChance",
+        "--%"
+    );
+
+    setText(
+        "weatherCondition",
+        "Weather unavailable"
+    );
+
+    setText(
+        "weatherLocation",
+        "Kopargaon"
+    );
+
+    setText(
+        "weatherStatus",
+        "Unable to connect to weather server"
+    );
+}
+
+
+// ============================================================
+// FORECAST
+// ============================================================
+
+function updateForecast(forecast) {
+
+    const forecastContainer =
+        getElement("forecastContainer");
+
+    if (!forecastContainer) {
+        console.log(
+            "forecastContainer not found. Skipping forecast UI."
+        );
         return;
     }
 
-    container.innerHTML = "";
+    forecastContainer.innerHTML = "";
 
-    if (!forecast.length) {
+    if (!Array.isArray(forecast) || forecast.length === 0) {
 
-        container.innerHTML =
-            "<p>Forecast data unavailable.</p>";
+        forecastContainer.innerHTML =
+            "<p>No forecast data available.</p>";
 
         return;
     }
@@ -1956,44 +2135,76 @@ function displayForecast(forecast) {
 
     forecast.forEach(day => {
 
-        const card = document.createElement("div");
+        const card =
+            document.createElement("div");
 
         card.className = "forecast-card";
 
+
+        const date =
+            day.date || "--";
+
+
+        const maxTemp =
+            day.temp_max_c ??
+            "--";
+
+
+        const minTemp =
+            day.temp_min_c ??
+            "--";
+
+
+        const rain =
+            day.rain_probability_pct ??
+            0;
+
+
+        const rainfall =
+            day.rainfall_mm ??
+            0;
+
+
+        const condition =
+            day.condition ||
+            "Unknown";
+
+
         card.innerHTML = `
             <div class="forecast-date">
-                ${formatDate(day.date)}
+                ${formatForecastDate(date)}
             </div>
 
             <div class="forecast-condition">
-                ${day.condition || "Unknown"}
+                ${condition}
             </div>
 
             <div class="forecast-temperature">
-                ${day.temp_max_c ?? "--"}°C /
-                ${day.temp_min_c ?? "--"}°C
+                ${Math.round(Number(maxTemp))}° /
+                ${Math.round(Number(minTemp))}°
             </div>
 
             <div class="forecast-rain">
-                Rain: ${day.rainfall_mm ?? "--"} mm
+                Rain: ${Math.round(Number(rain))}%
             </div>
 
-            <div class="forecast-probability">
-                Rain chance:
-                ${day.rain_probability_pct ?? "--"}%
+            <div class="forecast-rainfall">
+                ${Number(rainfall).toFixed(1)} mm
             </div>
         `;
 
-        container.appendChild(card);
+
+        forecastContainer.appendChild(card);
+
     });
 }
 
 
 // ============================================================
-// DATE FORMAT
+// FORMAT FORECAST DATE
 // ============================================================
 
-function formatDate(dateString) {
+function formatForecastDate(dateString) {
 
     if (!dateString) {
         return "--";
@@ -2001,9 +2212,8 @@ function formatDate(dateString) {
 
     try {
 
-        const date = new Date(
-            `${dateString}T00:00:00`
-        );
+        const date =
+            new Date(`${dateString}T00:00:00`);
 
         return date.toLocaleDateString(
             "en-IN",
@@ -2014,7 +2224,7 @@ function formatDate(dateString) {
             }
         );
 
-    } catch {
+    } catch (error) {
 
         return dateString;
     }
@@ -2025,67 +2235,104 @@ function formatDate(dateString) {
 // REFRESH WEATHER BUTTON
 // ============================================================
 
-function setupWeatherButton() {
+function setupWeatherRefresh() {
 
-    const button = $("refreshWeatherBtn");
+    const refreshButton =
+        getElement("refreshWeatherBtn");
 
-    if (!button) {
+    if (!refreshButton) {
 
         console.warn(
-            "refreshWeatherBtn not found"
+            "refreshWeatherBtn was not found."
         );
 
         return;
     }
 
-    button.addEventListener(
+
+    // Prevent form submission if the button
+    // happens to be inside a form.
+
+    refreshButton.type = "button";
+
+
+    refreshButton.addEventListener(
         "click",
-        async function () {
+        function(event) {
 
-            button.disabled = true;
+            event.preventDefault();
 
-            button.textContent =
-                "Loading...";
+            console.log(
+                "Refresh Weather button clicked."
+            );
 
-            try {
-
-                await loadWeather();
-
-            } finally {
-
-                button.disabled = false;
-
-                button.textContent =
-                    "🔄 Refresh";
-            }
+            loadWeather();
         }
     );
 }
 
 
 // ============================================================
-// INITIALIZATION
+// INITIAL WEATHER LOAD
+// ============================================================
+
+function initializeWeather() {
+
+    console.log(
+        "Initializing SmartAgri weather..."
+    );
+
+    setupWeatherRefresh();
+
+    loadWeather();
+}
+
+
+// ============================================================
+// OPTIONAL BACKEND STATUS CHECK
+// ============================================================
+
+async function checkBackend() {
+
+    try {
+
+        const data =
+            await apiFetch("/api/status");
+
+        console.log(
+            "SmartAgri backend status:",
+            data
+        );
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "SmartAgri backend is not reachable:",
+            error
+        );
+
+        return false;
+    }
+}
+
+
+// ============================================================
+// PAGE LOAD
 // ============================================================
 
 document.addEventListener(
     "DOMContentLoaded",
-    function () {
+    function() {
 
         console.log(
-            "SmartAgri frontend started"
+            "SmartAgri frontend loaded."
         );
 
-        setupWeatherButton();
+        initializeWeather();
 
-        checkConnection();
-
-        loadWeather();
-
-        // Check backend every 30 seconds
-        setInterval(
-            checkConnection,
-            30000
-        );
+        checkBackend();
     }
 );
 
