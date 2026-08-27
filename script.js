@@ -493,198 +493,167 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
 
-    /* =====================================================
-       LANGUAGE FUNCTION
-    ===================================================== */
+/* =========================================================
+   LANGUAGE SELECTORS
+   ========================================================= */
 
-    function applyLanguage(language) {
+function setupLanguageSelectors() {
 
-        if (!translations[language]) {
-            language = "en";
-        }
-
-        selectedLanguage = language;
-
-        localStorage.setItem(
-            "smartagri_language",
-            language
-        );
-
-        document.documentElement.lang = language;
-
-
-        document
-            .querySelectorAll("[data-i18n]")
-            .forEach(element => {
-
-                const key =
-                    element.getAttribute("data-i18n");
-
-                if (
-                    translations[language] &&
-                    translations[language][key]
-                ) {
-
-                    element.textContent =
-                        translations[language][key];
-
-                }
-
-            });
-
-
-        document
-            .querySelectorAll("[data-i18n-placeholder]")
-            .forEach(element => {
-
-                const key =
-                    element.getAttribute(
-                        "data-i18n-placeholder"
-                    );
-
-                if (
-                    translations[language] &&
-                    translations[language][key]
-                ) {
-
-                    element.placeholder =
-                        translations[language][key];
-
-                }
-
-            });
-
-
-        const dashboardLanguage =
-            document.getElementById("dashboardLanguage");
-
-        const settingsLanguage =
-            document.getElementById("settingsLanguage");
-
-        const registerLanguage =
-            document.getElementById("registerLanguage");
-
-        const profileLanguage =
-            document.getElementById("profileLanguage");
-
-
-        if (dashboardLanguage)
-            dashboardLanguage.value = language;
-
-        if (settingsLanguage)
-            settingsLanguage.value = language;
-
-        if (registerLanguage)
-            registerLanguage.value = language;
-
-        if (profileLanguage)
-            profileLanguage.value = language;
-
-
-        updateLanguageButtons();
-
-        updateCropModalLanguage();
-
-        console.log(
-            "Language changed to:",
-            language
-        );
-    }
-
-
-    function updateLanguageButtons() {
-
-        document
-            .querySelectorAll(".language-option")
-            .forEach(button => {
-
-                const language =
-                    button.getAttribute("data-language");
-
-                button.classList.toggle(
-                    "selected",
-                    language === selectedLanguage
-                );
-
-            });
-
-        const continueButton =
-            document.getElementById(
-                "continueLanguageBtn"
-            );
-
-        if (continueButton) {
-
-            continueButton.disabled = false;
-
-        }
-
-    }
-
-
-    /* =====================================================
-       LANGUAGE PAGE BUTTONS
-    ===================================================== */
+    /* -------------------------------------------------------
+       Language buttons on the first language page
+       ------------------------------------------------------- */
 
     document
         .querySelectorAll(".language-option")
         .forEach(button => {
 
-            button.addEventListener("click", () => {
+            button.addEventListener("click", function (event) {
+
+                event.preventDefault();
+
+                document
+                    .querySelectorAll(".language-option")
+                    .forEach(btn => {
+                        btn.classList.remove("selected");
+                    });
+
+                this.classList.add("selected");
 
                 const language =
-                    button.getAttribute(
-                        "data-language"
+                    this.dataset.language;
+
+                if (language && translations[language]) {
+
+                    translatePage(language);
+
+                    console.log(
+                        "SmartAgri language selected:",
+                        language
                     );
-
-                console.log(
-                    "Language selected:",
-                    language
-                );
-
-                selectedLanguage = language;
-
-                localStorage.setItem(
-                    "smartagri_language",
-                    language
-                );
-
-                applyLanguage(language);
+                }
 
             });
 
         });
 
 
-    const continueLanguageBtn =
-        document.getElementById(
-            "continueLanguageBtn"
-        );
+    /* -------------------------------------------------------
+       CONTINUE BUTTON
+       Language Page -> Demo Dashboard
+       ------------------------------------------------------- */
 
+    const continueButton =
+        $("continueLanguageBtn");
 
-    if (continueLanguageBtn) {
+    if (continueButton) {
 
-        continueLanguageBtn.disabled = false;
+        /*
+         * Make absolutely sure this button does not
+         * submit a form or reload the page.
+         */
 
-        continueLanguageBtn.addEventListener(
+        continueButton.type = "button";
+
+        continueButton.addEventListener(
             "click",
-            () => {
+            function (event) {
+
+                event.preventDefault();
+                event.stopPropagation();
 
                 console.log(
-                    "Continue language clicked."
+                    "SmartAgri: Continue button clicked."
                 );
 
-                applyLanguage(
-                    selectedLanguage
+                /*
+                 * Apply the selected language first.
+                 */
+
+                translatePage(
+                    currentLanguage
                 );
 
-                showScreen("loginPage");
+                /*
+                 * Go DIRECTLY to the demo dashboard.
+                 *
+                 * Do NOT go to loginPage.
+                 */
+
+                startDemoDashboard();
+
+            }
+        );
+
+    } else {
+
+        console.warn(
+            "SmartAgri: continueLanguageBtn was not found."
+        );
+
+    }
+
+
+    /* -------------------------------------------------------
+       Dashboard language selector
+       ------------------------------------------------------- */
+
+    setupSelectLanguage(
+        "dashboardLanguage"
+    );
+
+
+    /* -------------------------------------------------------
+       Settings language selector
+       ------------------------------------------------------- */
+
+    setupSelectLanguage(
+        "settingsLanguage"
+    );
+
+
+    /* -------------------------------------------------------
+       Register language selector
+       ------------------------------------------------------- */
+
+    setupSelectLanguage(
+        "registerLanguage"
+    );
+
+
+    /* -------------------------------------------------------
+       Profile language selector
+       ------------------------------------------------------- */
+
+    setupSelectLanguage(
+        "profileLanguage"
+    );
+
+
+    /* -------------------------------------------------------
+       Change language from login page
+       ------------------------------------------------------- */
+
+    const changeLanguageFromLogin =
+        $("changeLanguageFromLogin");
+
+    if (changeLanguageFromLogin) {
+
+        changeLanguageFromLogin.addEventListener(
+            "click",
+            function (event) {
+
+                event.preventDefault();
+
+                showPage(
+                    "languagePage"
+                );
 
             }
         );
 
     }
 
+}
 
     /* =====================================================
        SCREEN MANAGEMENT
