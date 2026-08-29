@@ -3814,7 +3814,109 @@ function setupCropHealth() {
         }
     );
 }
+function displayCropHealthResult(data) {
 
+    const result =
+        document.getElementById(
+            "cropAnalysisResult"
+        );
+
+    if (!result) return;
+
+    /*
+     * Plant.id returns the detailed
+     * identification and health data.
+     */
+
+    const suggestions =
+        data?.result?.classification?.suggestions ||
+        [];
+
+    const healthAssessment =
+        data?.result?.disease?.suggestions ||
+        [];
+
+    let html = `
+        <div class="crop-result-card">
+
+            <h3>🌱 Crop Health Analysis</h3>
+    `;
+
+    if (suggestions.length > 0) {
+
+        const topCrop =
+            suggestions[0];
+
+        html += `
+            <div class="analysis-item">
+                <strong>Crop Identified</strong>
+                <span>
+                    ${escapeHTML(
+                        topCrop.name || "Unknown"
+                    )}
+                </span>
+            </div>
+
+            <div class="analysis-item">
+                <strong>Confidence</strong>
+                <span>
+                    ${Math.round(
+                        (topCrop.probability || 0) * 100
+                    )}%
+                </span>
+            </div>
+        `;
+    }
+
+    if (healthAssessment.length > 0) {
+
+        html += `
+            <h4>🦠 Possible Health Issues</h4>
+        `;
+
+        healthAssessment
+            .slice(0, 5)
+            .forEach(function (item) {
+
+                html += `
+                    <div class="analysis-item">
+                        <strong>
+                            ${escapeHTML(
+                                item.name ||
+                                "Unknown condition"
+                            )}
+                        </strong>
+
+                        <span>
+                            ${Math.round(
+                                (item.probability || 0) * 100
+                            )}%
+                        </span>
+                    </div>
+                `;
+            });
+    }
+
+    if (
+        suggestions.length === 0 &&
+        healthAssessment.length === 0
+    ) {
+
+        html += `
+            <p>
+                The AI could not confidently identify
+                a crop or health condition from this image.
+                Please upload a clearer leaf or crop image.
+            </p>
+        `;
+    }
+
+    html += `
+        </div>
+    `;
+
+    result.innerHTML = html;
+}
 }
 
 
