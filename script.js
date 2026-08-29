@@ -1341,50 +1341,87 @@ function applyTranslations() {
    CHANGE LANGUAGE
 ============================================================ */
 
-function setLanguage(language) {
+function setupLanguagePage() {
+    const languageOptions =
+        document.querySelectorAll(".language-option");
 
-    if (!translations[language]) {
-        language = "en";
+    const continueButton =
+        document.getElementById("continueLanguageBtn");
+
+    if (!continueButton) {
+        console.error(
+            "Continue language button not found."
+        );
+        return;
     }
 
-    currentLanguage =
-        language;
+    // Continue is disabled until a language is selected
+    continueButton.disabled = true;
 
-    localStorage.setItem(
-        "smartAgriLanguage",
-        currentLanguage
-    );
+    languageOptions.forEach(function (option) {
 
+        option.addEventListener("click", function () {
 
-    farmerData.language =
-        currentLanguage;
+            // Remove selection from all languages
+            languageOptions.forEach(function (item) {
+                item.classList.remove("selected");
+            });
 
+            // Select clicked language
+            option.classList.add("selected");
 
-    applyTranslations();
+            // Get selected language
+            const language =
+                option.getAttribute("data-lang");
 
+            if (!language) {
+                console.error(
+                    "Language option has no data-lang."
+                );
+                return;
+            }
 
-    console.log(
-        "Language changed to:",
-        currentLanguage
-    );
+            // Save language
+            setLanguage(language);
 
+            // Enable Continue
+            continueButton.disabled = false;
 
-    /* Update voice language */
+            console.log(
+                "Selected language:",
+                language
+            );
+        });
+    });
 
-    if (
-        window.smartAgriRecognition
-    ) {
+    continueButton.addEventListener(
+        "click",
+        function () {
 
-        try {
+            if (continueButton.disabled) {
+                return;
+            }
 
-            window.smartAgriRecognition.lang =
-                getSpeechLanguage();
+            const languagePage =
+                document.getElementById("languagePage");
 
-        } catch (error) {
-            console.warn(error);
+            const loginPage =
+                document.getElementById("loginPage");
+
+            if (languagePage) {
+                languagePage.classList.remove("active");
+            }
+
+            if (loginPage) {
+                loginPage.classList.add("active");
+            }
+
+            console.log(
+                "Language page → Login page"
+            );
         }
-
-    }
+    );
+}
 
 
     /* Refresh weather text/data */
