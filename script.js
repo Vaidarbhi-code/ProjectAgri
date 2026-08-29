@@ -3688,45 +3688,132 @@ function setupCropHealth() {
 
 
     if (analyzeButton) {
+    analyzeButton.addEventListener(
+        "click",
+        async function () {
 
-        analyzeButton.addEventListener(
-            "click",
-            function () {
+            const file =
+                input.files &&
+                input.files[0];
 
-                const result =
-                    document.getElementById(
-                        "cropAnalysisResult"
+            const result =
+                document.getElementById(
+                    "cropAnalysisResult"
+                );
+
+            if (!file) {
+                return;
+            }
+
+            if (!result) {
+                return;
+            }
+
+            // Show loading state
+            result.innerHTML = `
+                <strong>🌱 Analyzing Crop...</strong>
+                <p>
+                    SmartAgri AI is examining your crop image.
+                    Please wait.
+                </p>
+            `;
+
+            analyzeButton.disabled = true;
+            analyzeButton.textContent = "Analyzing...";
+
+            try {
+
+                // Convert image to Base64
+                const imageData =
+                    await new Promise(
+                        function (resolve, reject) {
+
+                            const reader =
+                                new FileReader();
+
+                            reader.onload =
+                                function () {
+                                    resolve(
+                                        reader.result
+                                    );
+                                };
+
+                            reader.onerror =
+                                reject;
+
+                            reader.readAsDataURL(
+                                file
+                            );
+                        }
                     );
 
+                // Send image to YOUR backend
+                const response =
+                    await fetch(
+                        "/api/crop-health",
+                        {
+                            method: "POST",
 
-                if (result) {
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
 
-                    result.innerHTML = `
+                            body: JSON.stringify({
+                                image: imageData
+                            })
+                        }
+                    );
 
-                        <strong>
-                            ${escapeHTML(
-                                t(
-                                    "analysisNotConnected"
-                                )
-                            )}
-                        </strong>
+                const resultData =
+                    await response.json();
 
-                        <p>
-                            ${escapeHTML(
-                                t(
-                                    "analysisNotConnectedDescription"
-                                )
-                            )}
-                        </p>
+                console.log(
+                    "Crop Health Response:",
+                    resultData
+                );
 
-                    `;
+                if (!response.ok ||
+                    !resultData.success) {
 
+                    throw new Error(
+                        resultData.error ||
+                        "Crop analysis failed"
+                    );
                 }
 
-            }
-        );
+                // Display the result
+                displayCropHealthResult(
+                    resultData.data
+                );
 
-    }
+            } catch (error) {
+
+                console.error(
+                    "Crop Health Error:",
+                    error
+                );
+
+                result.innerHTML = `
+                    <strong>⚠️ Analysis Failed</strong>
+                    <p>
+                        ${escapeHTML(
+                            error.message ||
+                            "Unable to analyze crop."
+                        )}
+                    </p>
+                `;
+
+            } finally {
+
+                analyzeButton.disabled = false;
+                analyzeButton.textContent =
+                    t("analyzeCrop");
+
+            }
+        }
+    );
+}
 
 }
 
