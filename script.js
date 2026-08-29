@@ -3765,8 +3765,30 @@ function setupCropHealth() {
                         }
                     );
 
-                const resultData =
-                    await response.json();
+                const response = await fetch("/api/crop-health", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        image: imageData
+    })
+});
+
+const responseText = await response.text();
+
+console.log("HTTP Status:", response.status);
+console.log("Raw Server Response:", responseText);
+
+let resultData;
+
+try {
+    resultData = JSON.parse(responseText);
+} catch (parseError) {
+    throw new Error(
+        `Server returned invalid response (${response.status}): ${responseText || "EMPTY RESPONSE"}`
+    );
+}
 
                 console.log(
                     "Crop Health Response:",
