@@ -2872,6 +2872,97 @@ document.addEventListener("DOMContentLoaded", function () {
 
 </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const languageButtons =
+        document.querySelectorAll(".language-option");
+
+    const continueButton =
+        document.getElementById("continueLanguageBtn");
+
+    const languagePage =
+        document.getElementById("languagePage");
+
+    const loginPage =
+        document.getElementById("loginPage");
+
+    console.log("SmartAgri language system loaded");
+    console.log("Language buttons:", languageButtons.length);
+    console.log("Continue button:", continueButton);
+
+    if (!continueButton) {
+        console.error("ERROR: continueLanguageBtn not found");
+        return;
+    }
+
+    let selectedLanguage = null;
+
+    // Make sure Continue starts disabled
+    continueButton.disabled = true;
+
+    languageButtons.forEach(function (button) {
+
+        button.addEventListener("click", function () {
+
+            selectedLanguage =
+                button.getAttribute("data-language");
+
+            console.log(
+                "Selected language:",
+                selectedLanguage
+            );
+
+            // Remove selection
+            languageButtons.forEach(function (item) {
+                item.classList.remove("selected");
+            });
+
+            // Add selection
+            button.classList.add("selected");
+
+            // Enable Continue
+            continueButton.disabled = false;
+
+            // Save language
+            localStorage.setItem(
+                "smartAgriLanguage",
+                selectedLanguage
+            );
+
+        });
+
+    });
+
+
+    continueButton.addEventListener("click", function () {
+
+        console.log("Continue clicked");
+
+        if (!selectedLanguage) {
+            console.warn("No language selected");
+            return;
+        }
+
+        // Hide language page
+        languagePage.classList.remove("active-screen");
+
+        // Also hide it regardless of other classes
+        languagePage.style.display = "none";
+
+        // Show login
+        loginPage.classList.add("active-screen");
+        loginPage.style.display = "flex";
+
+        console.log(
+            "Opening login page with language:",
+            selectedLanguage
+        );
+
+    });
+
+});
+</script>
 
 <!-- =========================================================
      MAIN JAVASCRIPT
